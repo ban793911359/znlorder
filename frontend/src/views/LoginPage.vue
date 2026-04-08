@@ -45,7 +45,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { showSuccessToast } from 'vant';
+import { showFailToast, showSuccessToast } from 'vant';
 import { login } from '@/api/auth';
 import { useAuthStore } from '@/stores/auth';
 
@@ -69,9 +69,22 @@ async function handleSubmit() {
   submitting.value = true;
   try {
     const response = await login(form);
+    if (
+      !response ||
+      typeof response !== 'object' ||
+      !('data' in response) ||
+      !response.data?.accessToken
+    ) {
+      throw new Error('登录接口返回异常，请检查前端 API 地址配置');
+    }
+
     authStore.setAuth(response.data);
     showSuccessToast('登录成功');
     router.replace(authStore.getHomePath());
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : '登录失败，请稍后重试';
+    showFailToast(message);
   } finally {
     submitting.value = false;
   }
