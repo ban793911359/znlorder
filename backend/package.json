@@ -8,10 +8,10 @@
     "node": "20.x"
   },
   "scripts": {
-    "build": "nest build",
+    "build": "node ./node_modules/@nestjs/cli/bin/nest.js build",
     "format": "prettier --write \"src/**/*.ts\" \"prisma/**/*.ts\"",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
+    "start": "node ./node_modules/@nestjs/cli/bin/nest.js start",
+    "start:dev": "node ./node_modules/@nestjs/cli/bin/nest.js start --watch",
     "start:prod": "node dist/src/main.js",
     "start:railway": "npm run prisma:deploy && npm run start:prod",
     "lint": "eslint \"{src,prisma}/**/*.ts\" --fix",
