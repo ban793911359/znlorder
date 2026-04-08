@@ -13,12 +13,12 @@
     "start": "node ./node_modules/@nestjs/cli/bin/nest.js start",
     "start:dev": "node ./node_modules/@nestjs/cli/bin/nest.js start --watch",
     "start:prod": "node dist/src/main.js",
-    "start:railway": "npm run prisma:deploy && npm run start:prod",
+    "start:railway": "node ./scripts/railway-prepare.mjs && npm run start:prod",
     "lint": "eslint \"{src,prisma}/**/*.ts\" --fix",
     "prisma:generate": "node ./node_modules/prisma/build/index.js generate",
     "prisma:migrate": "node ./node_modules/prisma/build/index.js migrate dev",
     "prisma:deploy": "node ./node_modules/prisma/build/index.js migrate deploy",
-    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:seed": "node ./node_modules/tsx/dist/cli.mjs prisma/seed.ts",
     "uploads:cleanup": "tsx src/scripts/cleanup-expired-order-images.ts"
   },
   "prisma": {
@@ -42,7 +42,8 @@
     "passport-jwt": "^4.0.1",
     "prisma": "^5.22.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.8",
@@ -61,7 +62,6 @@
     "eslint-plugin-prettier": "^5.2.1",
     "prettier": "^3.4.2",
     "supertest": "^7.0.0",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }
