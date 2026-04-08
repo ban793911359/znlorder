@@ -1,0 +1,11 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install && npm run build"
+watchPatterns = ["src/**", "public/**", "package.json", "vite.config.ts", ".env.example", ".env.production.example", "server.mjs"]
+
+[deploy]
+startCommand = "npm run start"
+healthcheckPath = "/"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

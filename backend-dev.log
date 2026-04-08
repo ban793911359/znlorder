@@ -1,0 +1,246 @@
+
+> wechat-order-h5-backend@1.0.0 start:dev
+> nest start --watch
+
+[2J[3J[H[[90m13:59:45[0m] Starting compilation in watch mode...
+
+[[90m13:59:48[0m] Found 0 errors. Watching for file changes.
+
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +10ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPrismaModule dependencies initialized[39m[38;5;3m +9ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +4ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCustomersModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mJwtModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mServeStaticModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mUploadsModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuthModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mStatsModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mOrdersModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAuthController {/api/v1/auth}:[39m[38;5;3m +6ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/auth/login, POST} route[39m[38;5;3m +2ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCustomersController {/api/v1/customers}:[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/customers/identify, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mOrdersController {/api/v1/orders}:[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/orders, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/orders, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/orders/:id, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/orders/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/orders/:id/cancel, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mWarehouseOrdersController {/api/v1/warehouse/orders}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/warehouse/orders, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/warehouse/orders/pending, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/warehouse/orders/:id, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/warehouse/orders/:id/ship, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mPublicOrdersController {/api/v1/public/orders}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/public/orders/:orderNo, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mUploadsController {/api/v1/uploads}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/uploads/images, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mStatsController {/api/v1/stats}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/v1/stats/today-orders, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 28920  - [39m2026/04/02 13:59:49 [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +7ms[39m
+Backend started at http://127.0.0.1:3000
+POST /api/v1/auth/login 201 59ms
+POST /api/v1/uploads/images 201 17ms
+POST /api/v1/uploads/images 201 13ms
+POST /api/v1/orders 201 20ms
+GET /api/v1/orders/8 200 4ms
+POST /api/v1/auth/login 201 47ms
+GET /api/v1/warehouse/orders?status=pending_shipment&keyword=ZN20260402006 200 7ms
+GET /api/v1/warehouse/orders/8 200 3ms
+POST /api/v1/warehouse/orders/8/ship 201 12ms
+GET /api/v1/warehouse/orders?status=shipped&keyword=ZN20260402006 200 4ms
+GET /api/v1/warehouse/orders/8 200 2ms
+GET /api/v1/public/orders/ZN20260402006?token=5d0c8f6596421168fd3353872c70ef4538a1f6371ee57d06 200 2ms
+POST /api/v1/auth/login 201 49ms
+GET /api/v1/warehouse/orders?status=shipped&keyword=ZN20260402006 200 5ms
+[2J[3J[H[[90m14:42:03[0m] File change detected. Starting incremental compilation...
+
+[[90m14:42:03[0m] Found 0 errors. Watching for file changes.
+
+[2J[3J[H[[90m14:42:04[0m] File change detected. Starting incremental compilation...
+
+[[90m14:42:04[0m] Found 0 errors. Watching for file changes.
+
+[2J[3J[H[[90m14:42:05[0m] File change detected. Starting incremental compilation...
+
+[[90m14:42:05[0m] Found 0 errors. Watching for file changes.
+
+[2J[3J[H[[90m14:46:36[0m] File change detected. Starting incremental compilation...
+
+[96msrc/modules/uploads/uploads.service.ts[0m:[93m33[0m:[93m9[0m - [91merror[0m[90m TS2353: [0mObject literal may only specify known properties, and 'storageKey' does not exist in type 'Without<UploadFileCreateInput, UploadFileUncheckedCreateInput> & UploadFileUncheckedCreateInput'.
+
+[7m33[0m         storageKey,
+[7m  [0m [91m        ~~~~~~~~~~[0m
+
+  [96mnode_modules/.prisma/client/index.d.ts[0m:[93m7615[0m:[93m5[0m
+    [7m7615[0m     data: XOR<UploadFileCreateInput, UploadFileUncheckedCreateInput>
+    [7m    [0m [96m    ~~~~[0m
+    The expected type comes from property 'data' which is declared here on type '{ select?: UploadFileSelect<DefaultArgs> | null | undefined; include?: UploadFileInclude<DefaultArgs> | null | undefined; data: (Without<...> & UploadFileUncheckedCreateInput) | (Without<...> & UploadFileCreateInput); }'
+
+[96msrc/modules/uploads/uploads.service.ts[0m:[93m52[0m:[93m27[0m - [91merror[0m[90m TS2339: [0mProperty 'expiresAt' does not exist on type '{ bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; createdAt: Date; id: number; orderId: number | null; orderItemId: number | null; uploaderId: number; }'.
+
+[7m52[0m         expiresAt: upload.expiresAt,
+[7m  [0m [91m                          ~~~~~~~~~[0m
+
+[[90m14:46:36[0m] Found 2 errors. Watching for file changes.
+
+[2J[3J[H[[90m14:46:44[0m] File change detected. Starting incremental compilation...
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m28[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'expiresAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m28[0m     expiresAt: image.expiresAt,
+[7m  [0m [91m                     ~~~~~~~~~[0m
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m29[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'deletedAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m29[0m     deletedAt: image.deletedAt,
+[7m  [0m [91m                     ~~~~~~~~~[0m
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m31[0m:[93m13[0m - [91merror[0m[90m TS2339: [0mProperty 'deletedAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m31[0m       image.deletedAt === null && new Date(image.expiresAt).getTime() > now,
+[7m  [0m [91m            ~~~~~~~~~[0m
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m31[0m:[93m50[0m - [91merror[0m[90m TS2339: [0mProperty 'expiresAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m31[0m       image.deletedAt === null && new Date(image.expiresAt).getTime() > now,
+[7m  [0m [91m                                                 ~~~~~~~~~[0m
+
+[96msrc/modules/uploads/uploads.service.ts[0m:[93m33[0m:[93m9[0m - [91merror[0m[90m TS2353: [0mObject literal may only specify known properties, and 'storageKey' does not exist in type 'Without<UploadFileCreateInput, UploadFileUncheckedCreateInput> & UploadFileUncheckedCreateInput'.
+
+[7m33[0m         storageKey,
+[7m  [0m [91m        ~~~~~~~~~~[0m
+
+  [96mnode_modules/.prisma/client/index.d.ts[0m:[93m7615[0m:[93m5[0m
+    [7m7615[0m     data: XOR<UploadFileCreateInput, UploadFileUncheckedCreateInput>
+    [7m    [0m [96m    ~~~~[0m
+    The expected type comes from property 'data' which is declared here on type '{ select?: UploadFileSelect<DefaultArgs> | null | undefined; include?: UploadFileInclude<DefaultArgs> | null | undefined; data: (Without<...> & UploadFileUncheckedCreateInput) | (Without<...> & UploadFileCreateInput); }'
+
+[96msrc/modules/uploads/uploads.service.ts[0m:[93m52[0m:[93m27[0m - [91merror[0m[90m TS2339: [0mProperty 'expiresAt' does not exist on type '{ bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; createdAt: Date; id: number; orderId: number | null; orderItemId: number | null; uploaderId: number; }'.
+
+[7m52[0m         expiresAt: upload.expiresAt,
+[7m  [0m [91m                          ~~~~~~~~~[0m
+
+[[90m14:46:45[0m] Found 6 errors. Watching for file changes.
+
+[2J[3J[H[[90m14:47:47[0m] File change detected. Starting incremental compilation...
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m28[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'expiresAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m28[0m     expiresAt: image.expiresAt,
+[7m  [0m [91m                     ~~~~~~~~~[0m
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m29[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'deletedAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m29[0m     deletedAt: image.deletedAt,
+[7m  [0m [91m                     ~~~~~~~~~[0m
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m31[0m:[93m13[0m - [91merror[0m[90m TS2339: [0mProperty 'deletedAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m31[0m       image.deletedAt === null && new Date(image.expiresAt).getTime() > now,
+[7m  [0m [91m            ~~~~~~~~~[0m
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m31[0m:[93m50[0m - [91merror[0m[90m TS2339: [0mProperty 'expiresAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m31[0m       image.deletedAt === null && new Date(image.expiresAt).getTime() > now,
+[7m  [0m [91m                                                 ~~~~~~~~~[0m
+
+[96msrc/modules/uploads/uploads.service.ts[0m:[93m33[0m:[93m9[0m - [91merror[0m[90m TS2353: [0mObject literal may only specify known properties, and 'storageKey' does not exist in type 'Without<UploadFileCreateInput, UploadFileUncheckedCreateInput> & UploadFileUncheckedCreateInput'.
+
+[7m33[0m         storageKey,
+[7m  [0m [91m        ~~~~~~~~~~[0m
+
+  [96mnode_modules/.prisma/client/index.d.ts[0m:[93m7615[0m:[93m5[0m
+    [7m7615[0m     data: XOR<UploadFileCreateInput, UploadFileUncheckedCreateInput>
+    [7m    [0m [96m    ~~~~[0m
+    The expected type comes from property 'data' which is declared here on type '{ select?: UploadFileSelect<DefaultArgs> | null | undefined; include?: UploadFileInclude<DefaultArgs> | null | undefined; data: (Without<...> & UploadFileUncheckedCreateInput) | (Without<...> & UploadFileCreateInput); }'
+
+[96msrc/modules/uploads/uploads.service.ts[0m:[93m52[0m:[93m27[0m - [91merror[0m[90m TS2339: [0mProperty 'expiresAt' does not exist on type '{ bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; createdAt: Date; id: number; orderId: number | null; orderItemId: number | null; uploaderId: number; }'.
+
+[7m52[0m         expiresAt: upload.expiresAt,
+[7m  [0m [91m                          ~~~~~~~~~[0m
+
+[96msrc/scripts/cleanup-expired-order-images.ts[0m:[93m16[0m:[93m7[0m - [91merror[0m[90m TS2353: [0mObject literal may only specify known properties, and 'deletedAt' does not exist in type 'UploadFileWhereInput'.
+
+[7m16[0m       deletedAt: null,
+[7m  [0m [91m      ~~~~~~~~~[0m
+
+[96msrc/scripts/cleanup-expired-order-images.ts[0m:[93m29[0m:[93m14[0m - [91merror[0m[90m TS2339: [0mProperty 'storageKey' does not exist on type '{ id: number; orderId: number | null; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; createdAt: Date; }'.
+
+[7m29[0m         file.storageKey ||
+[7m  [0m [91m             ~~~~~~~~~~[0m
+
+[96msrc/scripts/cleanup-expired-order-images.ts[0m:[93m48[0m:[93m9[0m - [91merror[0m[90m TS2353: [0mObject literal may only specify known properties, and 'deletedAt' does not exist in type '(Without<UploadFileUpdateInput, UploadFileUncheckedUpdateInput> & UploadFileUncheckedUpdateInput) | (Without<...> & UploadFileUpdateInput)'.
+
+[7m48[0m         deletedAt: now,
+[7m  [0m [91m        ~~~~~~~~~[0m
+
+  [96mnode_modules/.prisma/client/index.d.ts[0m:[93m7644[0m:[93m5[0m
+    [7m7644[0m     data: XOR<UploadFileUpdateInput, UploadFileUncheckedUpdateInput>
+    [7m    [0m [96m    ~~~~[0m
+    The expected type comes from property 'data' which is declared here on type '{ select?: UploadFileSelect<DefaultArgs> | null | undefined; include?: UploadFileInclude<DefaultArgs> | null | undefined; data: (Without<...> & UploadFileUncheckedUpdateInput) | (Without<...> & UploadFileUpdateInput); where: UploadFileWhereUniqueInput; }'
+
+[[90m14:47:47[0m] Found 9 errors. Watching for file changes.
+
+[2J[3J[H[[90m14:51:22[0m] File change detected. Starting incremental compilation...
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m28[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'expiresAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m28[0m     expiresAt: image.expiresAt,
+[7m  [0m [91m                     ~~~~~~~~~[0m
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m29[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'deletedAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m29[0m     deletedAt: image.deletedAt,
+[7m  [0m [91m                     ~~~~~~~~~[0m
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m31[0m:[93m13[0m - [91merror[0m[90m TS2339: [0mProperty 'deletedAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m31[0m       image.deletedAt === null && new Date(image.expiresAt).getTime() > now,
+[7m  [0m [91m            ~~~~~~~~~[0m
+
+[96msrc/modules/orders/order-presenter.ts[0m:[93m31[0m:[93m50[0m - [91merror[0m[90m TS2339: [0mProperty 'expiresAt' does not exist on type '{ id: number; orderId: number | null; createdAt: Date; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; }'.
+
+[7m31[0m       image.deletedAt === null && new Date(image.expiresAt).getTime() > now,
+[7m  [0m [91m                                                 ~~~~~~~~~[0m
+
+[96msrc/modules/uploads/uploads.service.ts[0m:[93m33[0m:[93m9[0m - [91merror[0m[90m TS2353: [0mObject literal may only specify known properties, and 'storageKey' does not exist in type 'Without<UploadFileCreateInput, UploadFileUncheckedCreateInput> & UploadFileUncheckedCreateInput'.
+
+[7m33[0m         storageKey,
+[7m  [0m [91m        ~~~~~~~~~~[0m
+
+  [96mnode_modules/.prisma/client/index.d.ts[0m:[93m7615[0m:[93m5[0m
+    [7m7615[0m     data: XOR<UploadFileCreateInput, UploadFileUncheckedCreateInput>
+    [7m    [0m [96m    ~~~~[0m
+    The expected type comes from property 'data' which is declared here on type '{ select?: UploadFileSelect<DefaultArgs> | null | undefined; include?: UploadFileInclude<DefaultArgs> | null | undefined; data: (Without<...> & UploadFileUncheckedCreateInput) | (Without<...> & UploadFileCreateInput); }'
+
+[96msrc/modules/uploads/uploads.service.ts[0m:[93m52[0m:[93m27[0m - [91merror[0m[90m TS2339: [0mProperty 'expiresAt' does not exist on type '{ bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; createdAt: Date; id: number; orderId: number | null; orderItemId: number | null; uploaderId: number; }'.
+
+[7m52[0m         expiresAt: upload.expiresAt,
+[7m  [0m [91m                          ~~~~~~~~~[0m
+
+[96msrc/scripts/cleanup-expired-order-images.ts[0m:[93m16[0m:[93m7[0m - [91merror[0m[90m TS2353: [0mObject literal may only specify known properties, and 'deletedAt' does not exist in type 'UploadFileWhereInput'.
+
+[7m16[0m       deletedAt: null,
+[7m  [0m [91m      ~~~~~~~~~[0m
+
+[96msrc/scripts/cleanup-expired-order-images.ts[0m:[93m29[0m:[93m14[0m - [91merror[0m[90m TS2339: [0mProperty 'storageKey' does not exist on type '{ id: number; orderId: number | null; orderItemId: number | null; uploaderId: number; bizType: "order_product_image"; storageDriver: string; originalName: string; fileName: string; mimeType: string; fileSize: number; fileUrl: string; createdAt: Date; }'.
+
+[7m29[0m         file.storageKey ||
+[7m  [0m [91m             ~~~~~~~~~~[0m
+
+[96msrc/scripts/cleanup-expired-order-images.ts[0m:[93m48[0m:[93m9[0m - [91merror[0m[90m TS2353: [0mObject literal may only specify known properties, and 'deletedAt' does not exist in type '(Without<UploadFileUpdateInput, UploadFileUncheckedUpdateInput> & UploadFileUncheckedUpdateInput) | (Without<...> & UploadFileUpdateInput)'.
+
+[7m48[0m         deletedAt: now,
+[7m  [0m [91m        ~~~~~~~~~[0m
+
+  [96mnode_modules/.prisma/client/index.d.ts[0m:[93m7644[0m:[93m5[0m
+    [7m7644[0m     data: XOR<UploadFileUpdateInput, UploadFileUncheckedUpdateInput>
+    [7m    [0m [96m    ~~~~[0m
+    The expected type comes from property 'data' which is declared here on type '{ select?: UploadFileSelect<DefaultArgs> | null | undefined; include?: UploadFileInclude<DefaultArgs> | null | undefined; data: (Without<...> & UploadFileUncheckedUpdateInput) | (Without<...> & UploadFileUpdateInput); where: UploadFileWhereUniqueInput; }'
+
+[[90m14:51:22[0m] Found 9 errors. Watching for file changes.
+

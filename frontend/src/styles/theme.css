@@ -1,0 +1,29 @@
+.van-nav-bar {
+  background: #ffffff;
+}
+
+.van-field {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.van-field__label {
+  width: 88px;
+  color: #4b5563;
+}
+
+.van-cell::after {
+  left: 0;
+  right: 0;
+}
+
+.van-dropdown-menu {
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.van-uploader__upload,
+.van-uploader__preview-image {
+  border-radius: 12px;
+}

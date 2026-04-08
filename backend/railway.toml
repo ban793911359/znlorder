@@ -1,0 +1,11 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install && npm run prisma:generate && npm run build"
+watchPatterns = ["src/**", "prisma/**", "package.json", "tsconfig.json", ".env.example"]
+
+[deploy]
+startCommand = "npm run start:railway"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
