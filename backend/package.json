@@ -4,6 +4,9 @@
   "private": true,
   "description": "Backend service for WeChat post-sale order entry H5 system",
   "license": "UNLICENSED",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"prisma/**/*.ts\"",
@@ -12,9 +15,9 @@
     "start:prod": "node dist/src/main.js",
     "start:railway": "npm run prisma:deploy && npm run start:prod",
     "lint": "eslint \"{src,prisma}/**/*.ts\" --fix",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
+    "prisma:generate": "node ./node_modules/prisma/build/index.js generate",
+    "prisma:migrate": "node ./node_modules/prisma/build/index.js migrate dev",
+    "prisma:deploy": "node ./node_modules/prisma/build/index.js migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "uploads:cleanup": "tsx src/scripts/cleanup-expired-order-images.ts"
   },
@@ -37,6 +40,7 @@
     "multer": "^1.4.5-lts.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "prisma": "^5.22.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
@@ -56,7 +60,6 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "prettier": "^3.4.2",
-    "prisma": "^5.22.0",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
