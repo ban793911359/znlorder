@@ -22,7 +22,9 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new AllExceptionsFilter());
-  const allowedOrigins = configService
+  const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, '');
+
+  const configuredOrigins = configService
     .get<string>(
       'CORS_ORIGINS',
       [
@@ -38,9 +40,16 @@ async function bootstrap() {
     .map((item) => item.trim())
     .filter(Boolean);
 
+  const h5BaseUrl = configService.get<string>('H5_BASE_URL', '').trim();
+  const allowedOrigins = new Set(
+    [...configuredOrigins, h5BaseUrl]
+      .filter(Boolean)
+      .map((item) => normalizeOrigin(item)),
+  );
+
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.has(normalizeOrigin(origin))) {
         callback(null, true);
         return;
       }
