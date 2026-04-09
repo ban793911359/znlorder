@@ -18,8 +18,11 @@ frontend/
 │  ├─ utils/
 │  └─ views/
 ├─ .env.example
+├─ .env.pages.example
 ├─ index.html
 ├─ package.json
+├─ public/
+│  └─ _redirects
 └─ vite.config.ts
 ```
 
@@ -61,6 +64,34 @@ VITE_API_BASE_URL=http://localhost:3000
 
 - 开发环境下，`vite.config.ts` 已把 `/api` 和 `/uploads` 代理到后端
 - 如果前后端分域部署，把 `VITE_API_BASE_URL` 改成后端域名即可
+- 部署到 Cloudflare Pages 时，建议使用 `.env.pages.example` 里的格式
+- `public/_redirects` 已处理 Vue Router history 模式下的页面刷新回退，避免 `/login`、`/operator/orders/create` 直接访问时返回 404
+
+## Cloudflare Pages 部署
+
+当前前端已经适配 Cloudflare Pages，推荐配置：
+
+- Framework preset: `Vite`
+- Root directory: `frontend`
+- Build command: `npm install && npm run build`
+- Build output directory: `dist`
+
+Cloudflare Pages 环境变量：
+
+```env
+VITE_API_BASE_URL=https://你的-backend-域名
+```
+
+示例：
+
+```env
+VITE_API_BASE_URL=https://backend-production-d989.up.railway.app
+```
+
+如果前端已迁移到 Cloudflare Pages，记得同时去后端更新：
+
+- `H5_BASE_URL=https://你的-pages-前端域名`
+- `CORS_ORIGINS=https://你的-pages-前端域名`
 
 ## 已实现页面
 
