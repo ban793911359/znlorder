@@ -262,16 +262,28 @@ async function syncOrderSequences(orders: SeedOrder[]) {
   }
 
   for (const [dateKey, currentValue] of map.entries()) {
+    const likePrefix = `ZN${dateKey.replaceAll('-', '')}%`;
+    const rows = await prisma.$queryRawUnsafe<Array<{ max_value: number | null }>>(
+      `
+      SELECT MAX(CAST(SUBSTRING(order_no, 11) AS UNSIGNED)) AS max_value
+      FROM orders
+      WHERE order_no LIKE ?
+      `,
+      likePrefix,
+    );
+    const existingMaxValue = rows[0]?.max_value ?? 0;
+    const nextCurrentValue = Math.max(currentValue, existingMaxValue);
+
     await prisma.$executeRawUnsafe(
       `
       INSERT INTO order_sequences (biz_date, current_value, updated_at)
       VALUES (?, ?, NOW(3))
       ON DUPLICATE KEY UPDATE
-        current_value = VALUES(current_value),
+        current_value = GREATEST(current_value, VALUES(current_value)),
         updated_at = NOW(3)
       `,
       dateKey,
-      currentValue,
+      nextCurrentValue,
     );
   }
 }
