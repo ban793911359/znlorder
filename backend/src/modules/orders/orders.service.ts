@@ -1066,11 +1066,19 @@ export class OrdersService {
   }
 
   private isOrderNoUniqueConflict(error: unknown) {
+    const target =
+      error instanceof Prisma.PrismaClientKnownRequestError
+        ? error.meta?.target
+        : undefined;
+
+    const matchedTarget = Array.isArray(target)
+      ? target.includes('orders_order_no_key')
+      : target === 'orders_order_no_key';
+
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002' &&
-      Array.isArray(error.meta?.target) &&
-      error.meta.target.includes('orders_order_no_key')
+      matchedTarget
     );
   }
 
