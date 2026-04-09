@@ -9,10 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { randomBytes } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { memoryStorage } from 'multer';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -34,18 +31,7 @@ export class UploadsController {
   @Roles(UserRole.operator)
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_request, _file, callback) => {
-          const uploadDir = process.env.UPLOAD_DIR || 'uploads';
-          const destination = join(process.cwd(), uploadDir, 'images');
-          mkdirSync(destination, { recursive: true });
-          callback(null, destination);
-        },
-        filename: (_request, file, callback) => {
-          const suffix = `${Date.now()}-${randomBytes(6).toString('hex')}`;
-          callback(null, `${suffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (_request, file, callback) => {
         if (!allowedMimeTypes.includes(file.mimetype)) {
           callback(

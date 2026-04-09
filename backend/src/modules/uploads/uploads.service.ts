@@ -1,14 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UploadBizType } from '@prisma/client';
+import { extname } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../../database/prisma/prisma.service';
 import { JwtUser } from '../../common/interfaces/jwt-user.interface';
+import { LocalOrderImageStorage } from './storage/local.storage';
+import { R2OrderImageStorage } from './storage/r2.storage';
 
 @Injectable()
 export class UploadsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly localOrderImageStorage: LocalOrderImageStorage,
+    private readonly r2OrderImageStorage: R2OrderImageStorage,
   ) {}
 
   async createImageRecord(file: Express.Multer.File, currentUser: JwtUser) {
@@ -19,8 +25,13 @@ export class UploadsService {
     const retentionDays = Number(
       this.configService.get<string>('UPLOAD_RETENTION_DAYS', '30'),
     );
-    const storageKey = `images/${file.filename}`;
-    const publicUrl = this.buildPublicUrl(storageKey);
+    const fileName = this.buildStoredFileName(file.originalname);
+    const storage = this.resolveStorage(storageDriver);
+    const storedFile = await storage.saveImage({
+      buffer: file.buffer,
+      fileName,
+      mimeType: file.mimetype,
+    });
     const expiresAt = new Date(
       Date.now() + retentionDays * 24 * 60 * 60 * 1000,
     );
@@ -29,13 +40,13 @@ export class UploadsService {
       data: {
         uploaderId: currentUser.id,
         bizType: UploadBizType.order_product_image,
-        storageDriver,
-        storageKey,
+        storageDriver: storedFile.storageDriver,
+        storageKey: storedFile.storageKey,
         originalName: file.originalname,
-        fileName: file.filename,
+        fileName: storedFile.fileName,
         mimeType: file.mimetype,
         fileSize: file.size,
-        fileUrl: publicUrl,
+        fileUrl: storedFile.fileUrl,
         expiresAt,
       },
     });
@@ -55,12 +66,26 @@ export class UploadsService {
     };
   }
 
-  private buildPublicUrl(storageKey: string) {
-    const publicBaseUrl = this.configService.get<string>('UPLOAD_PUBLIC_BASE_URL');
-    if (publicBaseUrl) {
-      return `${publicBaseUrl.replace(/\/$/, '')}/${storageKey}`;
+  getStorageForDriver(storageDriver: string) {
+    return this.resolveStorage(storageDriver);
+  }
+
+  private resolveStorage(storageDriver: string) {
+    if (storageDriver === 'r2') {
+      return this.r2OrderImageStorage;
     }
 
-    return `/uploads/${storageKey}`;
+    if (storageDriver === 'local') {
+      return this.localOrderImageStorage;
+    }
+
+    throw new InternalServerErrorException(
+      `Unsupported upload storage driver: ${storageDriver}`,
+    );
+  }
+
+  private buildStoredFileName(originalName: string) {
+    const suffix = `${Date.now()}-${randomBytes(6).toString('hex')}`;
+    return `${suffix}${extname(originalName)}`;
   }
 }

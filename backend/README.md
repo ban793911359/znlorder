@@ -63,6 +63,11 @@ Copy-Item .env.example .env
 - `H5_BASE_URL`
 - `UPLOAD_STORAGE_DRIVER`
 - `UPLOAD_PUBLIC_BASE_URL`
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET`
+- `R2_BUCKET_PREFIX`
 - `UPLOAD_RETENTION_DAYS`
 
 说明：
@@ -74,6 +79,9 @@ Copy-Item .env.example .env
 - 订单主数据长期保留，图片文件到期后可删除，删除后不影响订单详情主数据查看
 - `UPLOAD_STORAGE_DRIVER` 默认 `local`
 - `UPLOAD_PUBLIC_BASE_URL` 在正式上线切 COS / OSS / CDN 时可填写，如 `https://cdn.example.com/order-images`
+- 如果切 `Cloudflare R2`，把 `UPLOAD_STORAGE_DRIVER` 设为 `r2`
+- `UPLOAD_PUBLIC_BASE_URL` 需要填你的 R2 公网访问域名或自定义域名，例如 `https://cdn.example.com`
+- `R2_BUCKET_PREFIX` 默认 `order-images`，最终对象 key 会形如 `order-images/images/xxx.webp`
 
 ## 3. 初始化数据库
 
@@ -270,6 +278,36 @@ order-images/images/xxxx.jpg
 3. bucket 生命周期规则设置为 30 天自动删除
 4. 订单详情接口通过 `expires_at` / `deleted_at` 返回 `available=false`
 5. 前端在图片不可用时展示“图片已过期”，不展示裂图
+
+### Cloudflare R2 接入
+
+当前项目已经内置了 `local / r2` 双模式：
+
+```env
+UPLOAD_STORAGE_DRIVER=r2
+UPLOAD_PUBLIC_BASE_URL=https://your-public-r2-domain.example.com
+R2_ACCOUNT_ID=your-cloudflare-account-id
+R2_ACCESS_KEY_ID=your-r2-access-key-id
+R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
+R2_BUCKET=your-r2-bucket-name
+R2_BUCKET_PREFIX=order-images
+UPLOAD_RETENTION_DAYS=30
+```
+
+接入说明：
+
+1. 在 Cloudflare R2 创建 bucket
+2. 生成 S3 API Token
+3. 给 bucket 开通公网访问，或绑定自定义域名
+4. 把该公网域名填到 `UPLOAD_PUBLIC_BASE_URL`
+5. 在 Cloudflare R2 生命周期规则里把 `order-images/` 前缀设置为 30 天后自动删除
+
+当前实现细节：
+
+- 上传接口保持不变，仍是 `POST /api/v1/uploads/images`
+- 后端会按 `UPLOAD_STORAGE_DRIVER` 自动切换到本地磁盘或 R2
+- `upload_files` 表继续保留元数据，订单主数据不受影响
+- `npm run uploads:cleanup` 现在既能删本地文件，也能删 R2 对象
 
 ### 前端过期展示
 
