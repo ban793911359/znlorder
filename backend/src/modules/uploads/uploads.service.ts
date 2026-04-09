@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UploadBizType } from '@prisma/client';
 import { extname } from 'node:path';
@@ -10,6 +10,8 @@ import { R2OrderImageStorage } from './storage/r2.storage';
 
 @Injectable()
 export class UploadsService {
+  private readonly logger = new Logger(UploadsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
@@ -32,6 +34,9 @@ export class UploadsService {
       fileName,
       mimeType: file.mimetype,
     });
+    this.logger.log(
+      `stored image via ${storedFile.storageDriver}: key=${storedFile.storageKey} url=${storedFile.fileUrl}`,
+    );
     const expiresAt = new Date(
       Date.now() + retentionDays * 24 * 60 * 60 * 1000,
     );
@@ -59,6 +64,8 @@ export class UploadsService {
         originalName: upload.originalName,
         mimeType: upload.mimeType,
         fileSize: upload.fileSize,
+        storageDriver: upload.storageDriver,
+        storageKey: upload.storageKey,
         fileUrl: this.resolvePublicFileUrl({
           storageDriver: upload.storageDriver,
           storageKey: upload.storageKey,
