@@ -57,12 +57,17 @@ export function resolveMediaUrl(url?: string | null) {
     return '';
   }
 
-  if (/^https?:\/\//.test(url)) {
-    return url;
+  const normalizedUrl = url.replace(
+    /^https:\/\/img\.znlorder\.com\/images\//i,
+    'https://img.znlorder.com/order-images/images/',
+  );
+
+  if (/^https?:\/\//.test(normalizedUrl)) {
+    return normalizedUrl;
   }
 
   const base = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-  return base ? `${base}${url}` : url;
+  return base ? `${base}${normalizedUrl}` : normalizedUrl;
 }
 
 export function isImageAvailable(input?: {
