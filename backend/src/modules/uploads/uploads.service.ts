@@ -64,6 +64,7 @@ export class UploadsService {
         originalName: upload.originalName,
         mimeType: upload.mimeType,
         fileSize: upload.fileSize,
+        debugVersion: 'upload-debug-v3',
         storageDriver: upload.storageDriver,
         storageKey: upload.storageKey,
         fileUrl: this.resolvePublicFileUrl({
