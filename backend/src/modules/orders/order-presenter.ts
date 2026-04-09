@@ -1,6 +1,18 @@
 import { Order, OrderItem, OrderStatusLog, UploadFile } from '@prisma/client';
 import { toCurrencyNumber } from '../../common/utils/decimal.util';
 
+function resolveUploadFileUrl(image: UploadFile) {
+  if (image.storageDriver === 'r2' && image.storageKey) {
+    const publicBaseUrl = (process.env.UPLOAD_PUBLIC_BASE_URL ?? '').trim();
+
+    if (publicBaseUrl) {
+      return `${publicBaseUrl.replace(/\/$/, '')}/${image.storageKey.replace(/^\/+/, '')}`;
+    }
+  }
+
+  return image.fileUrl;
+}
+
 export function presentOrderItems(
   items: Array<OrderItem & { images?: UploadFile[] }>,
 ) {
@@ -24,7 +36,7 @@ export function presentOrderImages(images: UploadFile[]) {
     fileName: image.fileName,
     mimeType: image.mimeType,
     fileSize: image.fileSize,
-    fileUrl: image.fileUrl,
+    fileUrl: resolveUploadFileUrl(image),
     expiresAt: image.expiresAt,
     deletedAt: image.deletedAt,
     available:

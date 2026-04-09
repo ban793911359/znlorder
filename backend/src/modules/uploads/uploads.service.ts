@@ -59,7 +59,11 @@ export class UploadsService {
         originalName: upload.originalName,
         mimeType: upload.mimeType,
         fileSize: upload.fileSize,
-        fileUrl: upload.fileUrl,
+        fileUrl: this.resolvePublicFileUrl({
+          storageDriver: upload.storageDriver,
+          storageKey: upload.storageKey,
+          fileUrl: upload.fileUrl,
+        }),
         expiresAt: upload.expiresAt,
         available: true,
       },
@@ -87,5 +91,23 @@ export class UploadsService {
   private buildStoredFileName(originalName: string) {
     const suffix = `${Date.now()}-${randomBytes(6).toString('hex')}`;
     return `${suffix}${extname(originalName)}`;
+  }
+
+  private resolvePublicFileUrl(input: {
+    storageDriver: string;
+    storageKey: string | null;
+    fileUrl: string;
+  }) {
+    if (input.storageDriver === 'r2' && input.storageKey) {
+      const publicBaseUrl = this.configService
+        .get<string>('UPLOAD_PUBLIC_BASE_URL', '')
+        .trim();
+
+      if (publicBaseUrl) {
+        return `${publicBaseUrl.replace(/\/$/, '')}/${input.storageKey.replace(/^\/+/, '')}`;
+      }
+    }
+
+    return input.fileUrl;
   }
 }
