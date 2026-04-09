@@ -4,9 +4,15 @@ import { toCurrencyNumber } from '../../common/utils/decimal.util';
 function resolveUploadFileUrl(image: UploadFile) {
   if (image.storageDriver === 'r2' && image.storageKey) {
     const publicBaseUrl = (process.env.UPLOAD_PUBLIC_BASE_URL ?? '').trim();
+    const prefix = ((process.env.R2_BUCKET_PREFIX ?? 'order-images').trim() ||
+      'order-images')
+      .replace(/^\/+|\/+$/g, '');
+    const normalizedStorageKey = image.storageKey.startsWith(`${prefix}/`)
+      ? image.storageKey
+      : `${prefix}/${image.storageKey.replace(/^\/+/, '')}`;
 
     if (publicBaseUrl) {
-      return `${publicBaseUrl.replace(/\/$/, '')}/${image.storageKey.replace(/^\/+/, '')}`;
+      return `${publicBaseUrl.replace(/\/$/, '')}/${normalizedStorageKey}`;
     }
   }
 

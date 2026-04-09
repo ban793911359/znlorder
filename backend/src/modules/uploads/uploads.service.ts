@@ -102,9 +102,18 @@ export class UploadsService {
       const publicBaseUrl = this.configService
         .get<string>('UPLOAD_PUBLIC_BASE_URL', '')
         .trim();
+      const prefix = (
+        this.configService.get<string>('R2_BUCKET_PREFIX', 'order-images') ??
+        'order-images'
+      )
+        .trim()
+        .replace(/^\/+|\/+$/g, '') || 'order-images';
+      const normalizedStorageKey = input.storageKey.startsWith(`${prefix}/`)
+        ? input.storageKey
+        : `${prefix}/${input.storageKey.replace(/^\/+/, '')}`;
 
       if (publicBaseUrl) {
-        return `${publicBaseUrl.replace(/\/$/, '')}/${input.storageKey.replace(/^\/+/, '')}`;
+        return `${publicBaseUrl.replace(/\/$/, '')}/${normalizedStorageKey}`;
       }
     }
 
