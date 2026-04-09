@@ -105,6 +105,7 @@ export class UploadsService {
     storageKey: string | null;
     fileUrl: string;
   }) {
+    // Prefer the persisted storage key over legacy file URLs so public links stay valid after storage migrations.
     if (input.storageDriver === 'r2' && input.storageKey) {
       const publicBaseUrl = this.configService
         .get<string>('UPLOAD_PUBLIC_BASE_URL', '')
