@@ -35,10 +35,14 @@ export class R2OrderImageStorage
     this.publicBaseUrl = this.configService
       .get<string>('UPLOAD_PUBLIC_BASE_URL', '')
       .trim();
-    this.keyPrefix = this.configService
-      .get<string>('R2_BUCKET_PREFIX', 'order-images')
-      .trim()
-      .replace(/^\/+|\/+$/g, '');
+    const configuredPrefix = (
+      this.configService.get<string>('R2_BUCKET_PREFIX', 'order-images') ??
+      'order-images'
+    ).trim();
+    this.keyPrefix = (configuredPrefix || 'order-images').replace(
+      /^\/+|\/+$/g,
+      '',
+    );
 
     this.client =
       accountId && accessKeyId && secretAccessKey
@@ -58,7 +62,9 @@ export class R2OrderImageStorage
     fileName: string;
     mimeType: string;
   }): Promise<StoredUploadResult> {
-    const storageKey = `${this.keyPrefix}/images/${input.fileName}`;
+    const storageKey = [this.keyPrefix, 'images', input.fileName]
+      .filter(Boolean)
+      .join('/');
     const client = this.ensureClient();
 
     await client.send(
