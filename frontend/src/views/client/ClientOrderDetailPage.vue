@@ -34,6 +34,20 @@
       <section-card title="收货与金额">
         <info-row label="完整地址" :value="formatReceiverFullAddress(detail)" />
         <info-row label="实收金额" :value="formatMoney(detail.payableAmount)" />
+        <div v-if="detail.paymentImages?.length" class="image-grid payment-code-grid">
+          <template v-for="image in detail.paymentImages" :key="image.id">
+            <img
+              v-if="isImageAvailable(image)"
+              :src="resolveMediaUrl(image.fileUrl)"
+              class="image-grid__item"
+              alt="收款码"
+            />
+            <div v-else class="image-expired-card">
+              <div class="image-expired-card__title">收款码已过期</div>
+              <div class="image-expired-card__desc">请联系商家确认收款方式</div>
+            </div>
+          </template>
+        </div>
       </section-card>
 
       <section-card title="物流信息">

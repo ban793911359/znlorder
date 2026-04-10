@@ -72,6 +72,11 @@ export class CreateOrderDto {
   @Type(() => OrderItemInputDto)
   items!: OrderItemInputDto[];
 
+  @IsOptional()
+  @IsArray()
+  @Type(() => Number)
+  paymentImageFileIds?: number[];
+
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)

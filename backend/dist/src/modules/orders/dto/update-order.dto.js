@@ -86,6 +86,12 @@ __decorate([
 ], UpdateOrderDto.prototype, "items", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_transformer_1.Type)(() => Number),
+    __metadata("design:type", Array)
+], UpdateOrderDto.prototype, "paymentImageFileIds", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)({ maxDecimalPlaces: 2 }),
     (0, class_validator_1.Min)(0),

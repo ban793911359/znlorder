@@ -60,6 +60,7 @@ export interface OrderSummary {
   updatedAt?: string;
   items: OrderItem[];
   images: UploadedImage[];
+  paymentImages?: UploadedImage[];
   warehouseRemark?: string | null;
   customer?: CustomerSummary;
   createdBy?: {
@@ -97,6 +98,7 @@ export interface CreateOrderPayload {
   receiverDistrict?: string;
   receiverAddress: string;
   items: OrderItem[];
+  paymentImageFileIds?: number[];
   totalAmount: number;
   shippingFee: number;
   discountAmount: number;

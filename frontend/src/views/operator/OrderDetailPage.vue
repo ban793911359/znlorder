@@ -68,6 +68,20 @@
       <info-row label="邮费" :value="formatMoney(detail.shippingFee)" />
       <info-row label="优惠金额" :value="formatMoney(detail.discountAmount)" />
       <info-row label="实收金额" :value="formatMoney(detail.payableAmount)" />
+      <div v-if="detail.paymentImages?.length" class="image-grid payment-code-grid">
+        <template v-for="image in detail.paymentImages" :key="image.id">
+          <img
+            v-if="isImageAvailable(image)"
+            :src="resolveMediaUrl(image.fileUrl)"
+            class="image-grid__item"
+            alt="收款码"
+          />
+          <div v-else class="image-expired-card">
+            <div class="image-expired-card__title">收款码已过期</div>
+            <div class="image-expired-card__desc">订单数据仍保留</div>
+          </div>
+        </template>
+      </div>
     </section-card>
 
     <section-card title="备注与物流">

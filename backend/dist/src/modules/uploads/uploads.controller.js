@@ -29,7 +29,7 @@ let UploadsController = class UploadsController {
         this.uploadsService = uploadsService;
         this.configService = configService;
     }
-    async uploadImage(file, currentUser) {
+    async uploadImage(file, bizType, currentUser) {
         const maxUploadSizeMb = Number(this.configService.get('MAX_UPLOAD_SIZE_MB', '5'));
         if (!file) {
             throw new common_1.BadRequestException('Image file is required');
@@ -37,7 +37,7 @@ let UploadsController = class UploadsController {
         if (file.size > maxUploadSizeMb * 1024 * 1024) {
             throw new common_1.BadRequestException(`File exceeds ${maxUploadSizeMb}MB upload limit`);
         }
-        return this.uploadsService.createImageRecord(file, currentUser);
+        return this.uploadsService.createImageRecord(file, currentUser, bizType);
     }
 };
 exports.UploadsController = UploadsController;
@@ -58,9 +58,10 @@ __decorate([
         },
     })),
     __param(0, (0, common_1.UploadedFile)()),
-    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Query)('bizType')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], UploadsController.prototype, "uploadImage", null);
 exports.UploadsController = UploadsController = __decorate([

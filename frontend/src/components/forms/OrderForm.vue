@@ -95,6 +95,15 @@
       <info-row label="实收金额">
         <span class="highlight-money">{{ formatMoney(payableAmount) }}</span>
       </info-row>
+      <div class="payment-code-upload">
+        <image-uploader
+          v-model="paymentImageList"
+          title="收款码"
+          tip="可上传一个或多个收款码，客户查看订单时会展示"
+          upload-text="上传收款码"
+          biz-type="order_payment_code_image"
+        />
+      </div>
     </section-card>
 
     <section-card title="备注信息">
@@ -149,6 +158,7 @@ import { showFailToast, showSuccessToast } from 'vant';
 import { identifyCustomer } from '@/api/customers';
 import InfoRow from '@/components/common/InfoRow.vue';
 import SectionCard from '@/components/common/SectionCard.vue';
+import ImageUploader from '@/components/upload/ImageUploader.vue';
 import ProductItemEditor from './ProductItemEditor.vue';
 import type { IdentifyCustomerResult } from '@/types/order';
 import type { OrderFormModel } from '@/types/form';
@@ -178,6 +188,16 @@ const payableAmount = computed(() =>
     Number(form.value.discountAmount || 0),
   ),
 );
+
+const paymentImageList = computed({
+  get: () => form.value.paymentImageList,
+  set: (value) => {
+    form.value.paymentImageList = value;
+    form.value.paymentImageFileIds = value
+      .map((item) => item.id)
+      .filter((item): item is number => typeof item === 'number');
+  },
+});
 
 const latestAddressText = computed(() =>
   customerHint.value?.lastShippingInfo?.receiverFullAddress ||

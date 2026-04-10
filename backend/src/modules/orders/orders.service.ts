@@ -170,7 +170,17 @@ export class OrdersService {
     );
 
     const itemImageFileIds = this.collectItemImageFileIds(createOrderDto.items);
-    await this.ensureUploadFilesAvailable(itemImageFileIds);
+    const paymentImageFileIds = createOrderDto.paymentImageFileIds ?? [];
+    await this.ensureUploadFilesAvailable(
+      itemImageFileIds,
+      undefined,
+      UploadBizType.order_product_image,
+    );
+    await this.ensureUploadFilesAvailable(
+      paymentImageFileIds,
+      undefined,
+      UploadBizType.order_payment_code_image,
+    );
 
     let lastError: unknown;
     let result:
@@ -269,6 +279,18 @@ export class OrdersService {
                 },
               });
             }
+          }
+
+          if (paymentImageFileIds.length > 0) {
+            await tx.uploadFile.updateMany({
+              where: {
+                id: { in: paymentImageFileIds },
+              },
+              data: {
+                orderId: order.id,
+                orderItemId: null,
+              },
+            });
           }
 
           await tx.orderStatusLog.create({
@@ -409,6 +431,15 @@ export class OrdersService {
       await this.ensureUploadFilesAvailable(
         this.collectItemImageFileIds(updateOrderDto.items),
         id,
+        UploadBizType.order_product_image,
+      );
+    }
+
+    if (updateOrderDto.paymentImageFileIds !== undefined) {
+      await this.ensureUploadFilesAvailable(
+        updateOrderDto.paymentImageFileIds,
+        id,
+        UploadBizType.order_payment_code_image,
       );
     }
 
@@ -465,7 +496,10 @@ export class OrdersService {
 
       if (updateOrderDto.items) {
         await tx.uploadFile.updateMany({
-          where: { orderId: id },
+          where: {
+            orderId: id,
+            bizType: UploadBizType.order_product_image,
+          },
           data: {
             orderId: null,
             orderItemId: null,
@@ -498,6 +532,31 @@ export class OrdersService {
               },
             });
           }
+        }
+      }
+
+      if (updateOrderDto.paymentImageFileIds) {
+        await tx.uploadFile.updateMany({
+          where: {
+            orderId: id,
+            bizType: UploadBizType.order_payment_code_image,
+          },
+          data: {
+            orderId: null,
+            orderItemId: null,
+          },
+        });
+
+        if (updateOrderDto.paymentImageFileIds.length > 0) {
+          await tx.uploadFile.updateMany({
+            where: {
+              id: { in: updateOrderDto.paymentImageFileIds },
+            },
+            data: {
+              orderId: id,
+              orderItemId: null,
+            },
+          });
         }
       }
 
@@ -1153,6 +1212,7 @@ export class OrdersService {
   private async ensureUploadFilesAvailable(
     imageFileIds: number[],
     currentOrderId?: number,
+    bizType: UploadBizType = UploadBizType.order_product_image,
   ) {
     if (imageFileIds.length === 0) {
       return;
@@ -1162,7 +1222,7 @@ export class OrdersService {
     const files = await this.prisma.uploadFile.findMany({
       where: {
         id: { in: uniqueIds },
-        bizType: UploadBizType.order_product_image,
+        bizType,
       },
     });
 

@@ -126,7 +126,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
         this.validateProductModelNos(createOrderDto.items);
         this.validateAmounts(createOrderDto.items, createOrderDto.totalAmount, createOrderDto.shippingFee ?? 0, createOrderDto.discountAmount ?? 0, createOrderDto.payableAmount);
         const itemImageFileIds = this.collectItemImageFileIds(createOrderDto.items);
-        await this.ensureUploadFilesAvailable(itemImageFileIds);
+        const paymentImageFileIds = createOrderDto.paymentImageFileIds ?? [];
+        await this.ensureUploadFilesAvailable(itemImageFileIds, undefined, client_1.UploadBizType.order_product_image);
+        await this.ensureUploadFilesAvailable(paymentImageFileIds, undefined, client_1.UploadBizType.order_payment_code_image);
         let lastError;
         let result;
         for (let attempt = 1; attempt <= OrdersService_1.ORDER_NO_RETRY_TIMES; attempt += 1) {
@@ -206,6 +208,17 @@ let OrdersService = OrdersService_1 = class OrdersService {
                                 },
                             });
                         }
+                    }
+                    if (paymentImageFileIds.length > 0) {
+                        await tx.uploadFile.updateMany({
+                            where: {
+                                id: { in: paymentImageFileIds },
+                            },
+                            data: {
+                                orderId: order.id,
+                                orderItemId: null,
+                            },
+                        });
                     }
                     await tx.orderStatusLog.create({
                         data: {
@@ -299,7 +312,10 @@ let OrdersService = OrdersService_1 = class OrdersService {
             (0, decimal_util_1.toCurrencyNumber)(existingOrder.payableAmount);
         this.validateAmounts(mergedItems, mergedTotalAmount, mergedShippingFee, mergedDiscountAmount, mergedPayableAmount);
         if (updateOrderDto.items !== undefined) {
-            await this.ensureUploadFilesAvailable(this.collectItemImageFileIds(updateOrderDto.items), id);
+            await this.ensureUploadFilesAvailable(this.collectItemImageFileIds(updateOrderDto.items), id, client_1.UploadBizType.order_product_image);
+        }
+        if (updateOrderDto.paymentImageFileIds !== undefined) {
+            await this.ensureUploadFilesAvailable(updateOrderDto.paymentImageFileIds, id, client_1.UploadBizType.order_payment_code_image);
         }
         const updatedOrder = await this.prisma.$transaction(async (tx) => {
             const customer = await tx.customer.upsert({
@@ -349,7 +365,10 @@ let OrdersService = OrdersService_1 = class OrdersService {
             });
             if (updateOrderDto.items) {
                 await tx.uploadFile.updateMany({
-                    where: { orderId: id },
+                    where: {
+                        orderId: id,
+                        bizType: client_1.UploadBizType.order_product_image,
+                    },
                     data: {
                         orderId: null,
                         orderItemId: null,
@@ -379,6 +398,29 @@ let OrdersService = OrdersService_1 = class OrdersService {
                             },
                         });
                     }
+                }
+            }
+            if (updateOrderDto.paymentImageFileIds) {
+                await tx.uploadFile.updateMany({
+                    where: {
+                        orderId: id,
+                        bizType: client_1.UploadBizType.order_payment_code_image,
+                    },
+                    data: {
+                        orderId: null,
+                        orderItemId: null,
+                    },
+                });
+                if (updateOrderDto.paymentImageFileIds.length > 0) {
+                    await tx.uploadFile.updateMany({
+                        where: {
+                            id: { in: updateOrderDto.paymentImageFileIds },
+                        },
+                        data: {
+                            orderId: id,
+                            orderItemId: null,
+                        },
+                    });
                 }
             }
             await tx.orderStatusLog.create({
@@ -936,7 +978,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
     collectItemImageFileIds(items) {
         return items.flatMap((item) => item.imageFileIds ?? []);
     }
-    async ensureUploadFilesAvailable(imageFileIds, currentOrderId) {
+    async ensureUploadFilesAvailable(imageFileIds, currentOrderId, bizType = client_1.UploadBizType.order_product_image) {
         if (imageFileIds.length === 0) {
             return;
         }
@@ -944,7 +986,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
         const files = await this.prisma.uploadFile.findMany({
             where: {
                 id: { in: uniqueIds },
-                bizType: client_1.UploadBizType.order_product_image,
+                bizType,
             },
         });
         if (files.length !== uniqueIds.length) {

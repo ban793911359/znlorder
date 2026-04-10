@@ -19,6 +19,8 @@ export interface ProductFormItem {
   }>;
 }
 
+export type UploadPreviewItem = ProductFormItem['imageList'][number];
+
 export interface OrderFormModel {
   customerName: string;
   customerMobile: string;
@@ -29,5 +31,7 @@ export interface OrderFormModel {
   warehouseRemark: string;
   shippingFee: number;
   discountAmount: number;
+  paymentImageFileIds: number[];
+  paymentImageList: UploadPreviewItem[];
   items: ProductFormItem[];
 }

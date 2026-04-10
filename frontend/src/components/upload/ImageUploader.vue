@@ -1,9 +1,9 @@
 <template>
   <div class="image-uploader">
     <div class="image-uploader__header">
-      <div class="image-uploader__title">商品图片</div>
+      <div class="image-uploader__title">{{ title }}</div>
       <div class="image-uploader__tip">
-        支持拍照/相册，上传前自动压缩，目标 100KB 以内
+        {{ tip }}
       </div>
     </div>
 
@@ -11,11 +11,11 @@
       :file-list="fileList"
       :after-read="handleAfterRead"
       multiple
-      :max-count="9"
+      :max-count="maxCount"
       accept="image/*"
       capture="environment"
       preview-size="88"
-      upload-text="拍照或上传"
+      :upload-text="uploadText"
       @delete="handleDelete"
     />
 
@@ -67,9 +67,20 @@ type UploadedPreview = {
   compressedSize?: number;
 };
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: UploadedPreview[];
-}>();
+  title?: string;
+  tip?: string;
+  maxCount?: number;
+  uploadText?: string;
+  bizType?: 'order_product_image' | 'order_payment_code_image';
+}>(), {
+  title: '商品图片',
+  tip: '支持拍照/相册，上传前自动压缩，目标 100KB 以内',
+  maxCount: 9,
+  uploadText: '拍照或上传',
+  bizType: 'order_product_image',
+});
 
 const emit = defineEmits<{
   'update:modelValue': [value: UploadedPreview[]];
@@ -133,7 +144,7 @@ async function handleAfterRead(
           : `压缩后 ${formatSize(compressed.compressedSize)}`,
       });
 
-      const response = await uploadImage(compressed.file);
+      const response = await uploadImage(compressed.file, props.bizType);
       URL.revokeObjectURL(localUrl);
       patchPreview(tempId, {
         id: response.data.id,

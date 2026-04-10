@@ -30,6 +30,8 @@ export function createEmptyFormModel(): OrderFormModel {
     warehouseRemark: '',
     shippingFee: 0,
     discountAmount: 0,
+    paymentImageFileIds: [],
+    paymentImageList: [],
     items: [
       {
         productName: '',
@@ -200,6 +202,7 @@ export function buildCreatePayload(form: OrderFormModel): CreateOrderPayload {
     receiverMobile: parsedReceiver.receiverMobile,
     receiverAddress: parsedReceiver.receiverAddress,
     items,
+    paymentImageFileIds: form.paymentImageFileIds,
     totalAmount,
     shippingFee: Number(form.shippingFee || 0),
     discountAmount: Number(form.discountAmount || 0),
@@ -265,6 +268,16 @@ export function buildFormFromOrderDetail(order: OrderDetail): OrderFormModel {
     warehouseRemark: remarks.warehouseRemark,
     shippingFee: order.shippingFee,
     discountAmount: order.discountAmount,
+    paymentImageFileIds: (order.paymentImages ?? [])
+      .filter(isActiveImage)
+      .map((image) => image.id),
+    paymentImageList: (order.paymentImages ?? [])
+      .filter(isActiveImage)
+      .map((image) => ({
+        id: image.id,
+        url: image.fileUrl,
+        name: image.originalName,
+      })),
     items: order.items.map((item, index) => {
       const spec = parseProductSpec(item.productSpec);
       const itemImages =

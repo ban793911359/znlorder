@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UploadBizType } from '@prisma/client';
 import { extname } from 'node:path';
@@ -19,7 +24,17 @@ export class UploadsService {
     private readonly r2OrderImageStorage: R2OrderImageStorage,
   ) {}
 
-  async createImageRecord(file: Express.Multer.File, currentUser: JwtUser) {
+  async createImageRecord(
+    file: Express.Multer.File,
+    currentUser: JwtUser,
+    bizType: UploadBizType = UploadBizType.order_product_image,
+  ) {
+    if (!Object.values(UploadBizType).includes(bizType)) {
+      throw new BadRequestException(
+        `Unsupported upload biz type: ${bizType}`,
+      );
+    }
+
     const storageDriver = this.configService.get<string>(
       'UPLOAD_STORAGE_DRIVER',
       'local',
@@ -44,7 +59,7 @@ export class UploadsService {
     const upload = await this.prisma.uploadFile.create({
       data: {
         uploaderId: currentUser.id,
-        bizType: UploadBizType.order_product_image,
+        bizType,
         storageDriver: storedFile.storageDriver,
         storageKey: storedFile.storageKey,
         originalName: file.originalname,

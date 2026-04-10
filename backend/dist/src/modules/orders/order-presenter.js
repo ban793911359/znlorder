@@ -62,7 +62,8 @@ function presentOrderLogs(logs) {
 }
 function presentOrderBase(order) {
     const itemList = presentOrderItems(order.items);
-    const fallbackImages = presentOrderImages(order.images);
+    const fallbackImages = presentOrderImages(order.images.filter((image) => image.bizType === 'order_product_image' && image.orderItemId === null));
+    const paymentImages = presentOrderImages(order.images.filter((image) => image.bizType === 'order_payment_code_image'));
     if (fallbackImages.length > 0 && itemList.every((item) => !item.images.length) && itemList[0]) {
         itemList[0] = {
             ...itemList[0],
@@ -91,5 +92,6 @@ function presentOrderBase(order) {
         updatedAt: order.updatedAt,
         items: itemList,
         images: fallbackImages,
+        paymentImages,
     };
 }

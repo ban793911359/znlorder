@@ -27,7 +27,10 @@ let UploadsService = UploadsService_1 = class UploadsService {
         this.r2OrderImageStorage = r2OrderImageStorage;
         this.logger = new common_1.Logger(UploadsService_1.name);
     }
-    async createImageRecord(file, currentUser) {
+    async createImageRecord(file, currentUser, bizType = client_1.UploadBizType.order_product_image) {
+        if (!Object.values(client_1.UploadBizType).includes(bizType)) {
+            throw new common_1.BadRequestException(`Unsupported upload biz type: ${bizType}`);
+        }
         const storageDriver = this.configService.get('UPLOAD_STORAGE_DRIVER', 'local');
         const retentionDays = Number(this.configService.get('UPLOAD_RETENTION_DAYS', '30'));
         const fileName = this.buildStoredFileName(file.originalname);
@@ -42,7 +45,7 @@ let UploadsService = UploadsService_1 = class UploadsService {
         const upload = await this.prisma.uploadFile.create({
             data: {
                 uploaderId: currentUser.id,
-                bizType: client_1.UploadBizType.order_product_image,
+                bizType,
                 storageDriver: storedFile.storageDriver,
                 storageKey: storedFile.storageKey,
                 originalName: file.originalname,

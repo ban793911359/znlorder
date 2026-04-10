@@ -2,12 +2,13 @@ import {
   BadRequestException,
   Controller,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UserRole } from '@prisma/client';
+import { UploadBizType, UserRole } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -50,6 +51,7 @@ export class UploadsController {
   )
   async uploadImage(
     @UploadedFile() file: Express.Multer.File | undefined,
+    @Query('bizType') bizType: UploadBizType | undefined,
     @CurrentUser() currentUser: JwtUser,
   ) {
     const maxUploadSizeMb = Number(
@@ -66,6 +68,6 @@ export class UploadsController {
       );
     }
 
-    return this.uploadsService.createImageRecord(file, currentUser);
+    return this.uploadsService.createImageRecord(file, currentUser, bizType);
   }
 }

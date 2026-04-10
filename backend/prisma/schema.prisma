@@ -27,6 +27,7 @@ enum OrderStatus {
 
 enum UploadBizType {
   order_product_image
+  order_payment_code_image
 }
 
 model User {

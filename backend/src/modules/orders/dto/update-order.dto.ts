@@ -70,6 +70,11 @@ export class UpdateOrderDto {
   items?: OrderItemInputDto[];
 
   @IsOptional()
+  @IsArray()
+  @Type(() => Number)
+  paymentImageFileIds?: number[];
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
