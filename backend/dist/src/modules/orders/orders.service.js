@@ -28,81 +28,97 @@ let OrdersService = OrdersService_1 = class OrdersService {
         this.logger = new common_1.Logger(OrdersService_1.name);
     }
     async listOrderDrafts(currentUser) {
-        const drafts = await this.prisma.orderDraft.findMany({
-            where: { ownerId: currentUser.id },
-            orderBy: { updatedAt: 'desc' },
-            take: 20,
-        });
+        const drafts = await this.prisma.$queryRaw `
+      SELECT id, title, payload, created_at, updated_at
+      FROM order_drafts
+      WHERE owner_id = ${currentUser.id}
+      ORDER BY updated_at DESC
+      LIMIT 20
+    `;
         return {
             success: true,
-            data: drafts.map((draft) => this.presentOrderDraft(draft)),
+            data: drafts.map((draft) => this.presentOrderDraftRow(draft)),
         };
     }
     async getOrderDraft(id, currentUser) {
-        const draft = await this.prisma.orderDraft.findFirst({
-            where: {
-                id,
-                ownerId: currentUser.id,
-            },
-        });
+        const drafts = await this.prisma.$queryRaw `
+      SELECT id, title, payload, created_at, updated_at
+      FROM order_drafts
+      WHERE id = ${id} AND owner_id = ${currentUser.id}
+      LIMIT 1
+    `;
+        const draft = drafts[0];
         if (!draft) {
             throw new common_1.NotFoundException('Order draft not found');
         }
         return {
             success: true,
-            data: this.presentOrderDraft(draft),
+            data: this.presentOrderDraftRow(draft),
         };
     }
     async saveOrderDraft(saveOrderDraftDto, currentUser) {
         const title = saveOrderDraftDto.title?.trim() || '未命名草稿';
-        const payload = saveOrderDraftDto.payload;
+        const payload = JSON.stringify(saveOrderDraftDto.payload ?? {});
         if (saveOrderDraftDto.id) {
-            const existingDraft = await this.prisma.orderDraft.findFirst({
-                where: {
-                    id: saveOrderDraftDto.id,
-                    ownerId: currentUser.id,
-                },
-            });
+            const existingDrafts = await this.prisma.$queryRaw `
+        SELECT id
+        FROM order_drafts
+        WHERE id = ${saveOrderDraftDto.id} AND owner_id = ${currentUser.id}
+        LIMIT 1
+      `;
+            const existingDraft = existingDrafts[0];
             if (!existingDraft) {
                 throw new common_1.NotFoundException('Order draft not found');
             }
-            const updatedDraft = await this.prisma.orderDraft.update({
-                where: { id: saveOrderDraftDto.id },
-                data: {
-                    title,
-                    payload,
-                },
-            });
+            await this.prisma.$executeRaw `
+        UPDATE order_drafts
+        SET title = ${title}, payload = ${payload}, updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = ${saveOrderDraftDto.id} AND owner_id = ${currentUser.id}
+      `;
+            const updatedDrafts = await this.prisma.$queryRaw `
+        SELECT id, title, payload, created_at, updated_at
+        FROM order_drafts
+        WHERE id = ${saveOrderDraftDto.id} AND owner_id = ${currentUser.id}
+        LIMIT 1
+      `;
             return {
                 success: true,
-                data: this.presentOrderDraft(updatedDraft),
+                data: this.presentOrderDraftRow(updatedDrafts[0]),
             };
         }
-        const draft = await this.prisma.orderDraft.create({
-            data: {
-                ownerId: currentUser.id,
-                title,
-                payload,
-            },
+        const draft = await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw `
+        INSERT INTO order_drafts (owner_id, title, payload, created_at, updated_at)
+        VALUES (${currentUser.id}, ${title}, ${payload}, CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3))
+      `;
+            const drafts = await tx.$queryRaw `
+        SELECT id, title, payload, created_at, updated_at
+        FROM order_drafts
+        WHERE id = LAST_INSERT_ID()
+        LIMIT 1
+      `;
+            return drafts[0];
         });
         return {
             success: true,
-            data: this.presentOrderDraft(draft),
+            data: this.presentOrderDraftRow(draft),
         };
     }
     async deleteOrderDraft(id, currentUser) {
-        const existingDraft = await this.prisma.orderDraft.findFirst({
-            where: {
-                id,
-                ownerId: currentUser.id,
-            },
-        });
+        const existingDrafts = await this.prisma.$queryRaw `
+      SELECT id
+      FROM order_drafts
+      WHERE id = ${id} AND owner_id = ${currentUser.id}
+      LIMIT 1
+    `;
+        const existingDraft = existingDrafts[0];
         if (!existingDraft) {
             throw new common_1.NotFoundException('Order draft not found');
         }
-        await this.prisma.orderDraft.delete({
-            where: { id },
-        });
+        await this.prisma.$executeRaw `
+      DELETE FROM order_drafts
+      WHERE id = ${id} AND owner_id = ${currentUser.id}
+    `;
         return {
             success: true,
             data: {
@@ -1052,14 +1068,25 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 ? String(error.code)
                 : undefined;
     }
-    presentOrderDraft(draft) {
+    presentOrderDraftRow(draft) {
         return {
-            id: draft.id,
+            id: Number(draft.id),
             title: draft.title,
-            payload: draft.payload,
-            createdAt: draft.createdAt,
-            updatedAt: draft.updatedAt,
+            payload: this.parseDraftPayload(draft.payload),
+            createdAt: draft.created_at,
+            updatedAt: draft.updated_at,
         };
+    }
+    parseDraftPayload(payload) {
+        if (typeof payload !== 'string') {
+            return payload;
+        }
+        try {
+            return JSON.parse(payload);
+        }
+        catch {
+            return {};
+        }
     }
     normalizeReceiverInfo(input) {
         const receiverFullAddress = input.receiverFullAddress?.trim() ||
