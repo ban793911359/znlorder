@@ -98,6 +98,9 @@ let UploadsService = UploadsService_1 = class UploadsService {
             const prefix = (this.configService.get('R2_BUCKET_PREFIX', 'order-images') ??
                 'order-images')
                 .trim()
+                .replace(/^['"]|['"]$/g, '')
+                .replace(/^[A-Z0-9_]+\s*=\s*/i, '')
+                .replace(/^=+/, '')
                 .replace(/^\/+|\/+$/g, '') || 'order-images';
             const normalizedStorageKey = input.storageKey.startsWith(`${prefix}/`)
                 ? input.storageKey

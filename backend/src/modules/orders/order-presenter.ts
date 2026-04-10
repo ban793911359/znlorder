@@ -6,6 +6,9 @@ function resolveUploadFileUrl(image: UploadFile) {
     const publicBaseUrl = (process.env.UPLOAD_PUBLIC_BASE_URL ?? '').trim();
     const prefix = ((process.env.R2_BUCKET_PREFIX ?? 'order-images').trim() ||
       'order-images')
+      .replace(/^['"]|['"]$/g, '')
+      .replace(/^[A-Z0-9_]+\s*=\s*/i, '')
+      .replace(/^=+/, '')
       .replace(/^\/+|\/+$/g, '');
     const normalizedStorageKey = image.storageKey.startsWith(`${prefix}/`)
       ? image.storageKey

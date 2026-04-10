@@ -41,10 +41,10 @@ export class R2OrderImageStorage
     this.publicBaseUrl = this.cleanConfigValue(
       this.configService.get<string>('UPLOAD_PUBLIC_BASE_URL', ''),
     ).replace(/\/$/, '');
-    const configuredPrefix = (
+    const configuredPrefix = this.cleanConfigValue(
       this.configService.get<string>('R2_BUCKET_PREFIX', 'order-images') ??
-      'order-images'
-    ).trim();
+        'order-images',
+    );
     this.keyPrefix = (configuredPrefix || 'order-images').replace(
       /^\/+|\/+$/g,
       '',

@@ -116,6 +116,9 @@ export class UploadsService {
         'order-images'
       )
         .trim()
+        .replace(/^['"]|['"]$/g, '')
+        .replace(/^[A-Z0-9_]+\s*=\s*/i, '')
+        .replace(/^=+/, '')
         .replace(/^\/+|\/+$/g, '') || 'order-images';
       const normalizedStorageKey = input.storageKey.startsWith(`${prefix}/`)
         ? input.storageKey

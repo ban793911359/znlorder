@@ -23,8 +23,8 @@ let R2OrderImageStorage = R2OrderImageStorage_1 = class R2OrderImageStorage {
         const secretAccessKey = this.cleanConfigValue(this.configService.get('R2_SECRET_ACCESS_KEY', ''));
         this.bucket = this.cleanConfigValue(this.configService.get('R2_BUCKET', ''));
         this.publicBaseUrl = this.cleanConfigValue(this.configService.get('UPLOAD_PUBLIC_BASE_URL', '')).replace(/\/$/, '');
-        const configuredPrefix = (this.configService.get('R2_BUCKET_PREFIX', 'order-images') ??
-            'order-images').trim();
+        const configuredPrefix = this.cleanConfigValue(this.configService.get('R2_BUCKET_PREFIX', 'order-images') ??
+            'order-images');
         this.keyPrefix = (configuredPrefix || 'order-images').replace(/^\/+|\/+$/g, '');
         const endpoint = accountId
             ? `https://${accountId}.r2.cloudflarestorage.com`
