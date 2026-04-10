@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -33,6 +34,7 @@ import { OrderNumberService } from './order-number.service';
 @Injectable()
 export class OrdersService {
   private static readonly ORDER_NO_RETRY_TIMES = 3;
+  private readonly logger = new Logger(OrdersService.name);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -188,13 +190,20 @@ export class OrdersService {
       } catch (error) {
         lastError = error;
 
-        if (
-          attempt < OrdersService.ORDER_NO_RETRY_TIMES &&
-          this.isOrderNoUniqueConflict(error)
-        ) {
-          continue;
+        if (this.isOrderNoUniqueConflict(error)) {
+          this.logger.warn(
+            `Order number unique conflict while creating order; attempt=${attempt}/${OrdersService.ORDER_NO_RETRY_TIMES}; ${this.describePrismaError(error)}`,
+          );
+
+          if (attempt < OrdersService.ORDER_NO_RETRY_TIMES) {
+            continue;
+          }
         }
 
+        this.logger.error(
+          `Failed to create order; attempt=${attempt}/${OrdersService.ORDER_NO_RETRY_TIMES}; ${this.describePrismaError(error)}`,
+          error instanceof Error ? error.stack : undefined,
+        );
         throw error;
       }
     }
@@ -1066,20 +1075,47 @@ export class OrdersService {
   }
 
   private isOrderNoUniqueConflict(error: unknown) {
+    const code = this.getErrorCode(error);
     const target =
       error instanceof Prisma.PrismaClientKnownRequestError
         ? error.meta?.target
-        : undefined;
+        : typeof error === 'object' && error !== null && 'meta' in error
+          ? (error as { meta?: { target?: unknown } }).meta?.target
+          : undefined;
 
-    const matchedTarget = Array.isArray(target)
-      ? target.includes('orders_order_no_key')
-      : target === 'orders_order_no_key';
+    const normalizedTarget = Array.isArray(target)
+      ? target.join(',')
+      : target === undefined || target === null
+        ? ''
+        : String(target);
 
     return (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002' &&
-      matchedTarget
+      code === 'P2002' &&
+      (normalizedTarget.includes('orders_order_no_key') ||
+        normalizedTarget.includes('order_no') ||
+        normalizedTarget.includes('orderNo'))
     );
+  }
+
+  private describePrismaError(error: unknown) {
+    const code = this.getErrorCode(error) ?? 'unknown';
+    const message = error instanceof Error ? error.message : String(error);
+    const target =
+      error instanceof Prisma.PrismaClientKnownRequestError
+        ? error.meta?.target
+        : typeof error === 'object' && error !== null && 'meta' in error
+          ? (error as { meta?: { target?: unknown } }).meta?.target
+          : undefined;
+
+    return `code=${code}; target=${JSON.stringify(target)}; message=${message}`;
+  }
+
+  private getErrorCode(error: unknown) {
+    return error instanceof Prisma.PrismaClientKnownRequestError
+      ? error.code
+      : typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : undefined;
   }
 
   private normalizeReceiverInfo(input: {

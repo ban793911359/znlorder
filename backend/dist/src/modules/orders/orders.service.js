@@ -25,6 +25,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
         this.prisma = prisma;
         this.orderNumberService = orderNumberService;
         this.configService = configService;
+        this.logger = new common_1.Logger(OrdersService_1.name);
     }
     async createOrder(createOrderDto, currentUser) {
         const receiverInfo = this.normalizeReceiverInfo({
@@ -144,10 +145,13 @@ let OrdersService = OrdersService_1 = class OrdersService {
             }
             catch (error) {
                 lastError = error;
-                if (attempt < OrdersService_1.ORDER_NO_RETRY_TIMES &&
-                    this.isOrderNoUniqueConflict(error)) {
-                    continue;
+                if (this.isOrderNoUniqueConflict(error)) {
+                    this.logger.warn(`Order number unique conflict while creating order; attempt=${attempt}/${OrdersService_1.ORDER_NO_RETRY_TIMES}; ${this.describePrismaError(error)}`);
+                    if (attempt < OrdersService_1.ORDER_NO_RETRY_TIMES) {
+                        continue;
+                    }
                 }
+                this.logger.error(`Failed to create order; attempt=${attempt}/${OrdersService_1.ORDER_NO_RETRY_TIMES}; ${this.describePrismaError(error)}`, error instanceof Error ? error.stack : undefined);
                 throw error;
             }
         }
@@ -873,15 +877,38 @@ let OrdersService = OrdersService_1 = class OrdersService {
         return value === '--' ? null : value;
     }
     isOrderNoUniqueConflict(error) {
+        const code = this.getErrorCode(error);
         const target = error instanceof client_1.Prisma.PrismaClientKnownRequestError
             ? error.meta?.target
-            : undefined;
-        const matchedTarget = Array.isArray(target)
-            ? target.includes('orders_order_no_key')
-            : target === 'orders_order_no_key';
-        return (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2002' &&
-            matchedTarget);
+            : typeof error === 'object' && error !== null && 'meta' in error
+                ? error.meta?.target
+                : undefined;
+        const normalizedTarget = Array.isArray(target)
+            ? target.join(',')
+            : target === undefined || target === null
+                ? ''
+                : String(target);
+        return (code === 'P2002' &&
+            (normalizedTarget.includes('orders_order_no_key') ||
+                normalizedTarget.includes('order_no') ||
+                normalizedTarget.includes('orderNo')));
+    }
+    describePrismaError(error) {
+        const code = this.getErrorCode(error) ?? 'unknown';
+        const message = error instanceof Error ? error.message : String(error);
+        const target = error instanceof client_1.Prisma.PrismaClientKnownRequestError
+            ? error.meta?.target
+            : typeof error === 'object' && error !== null && 'meta' in error
+                ? error.meta?.target
+                : undefined;
+        return `code=${code}; target=${JSON.stringify(target)}; message=${message}`;
+    }
+    getErrorCode(error) {
+        return error instanceof client_1.Prisma.PrismaClientKnownRequestError
+            ? error.code
+            : typeof error === 'object' && error !== null && 'code' in error
+                ? String(error.code)
+                : undefined;
     }
     normalizeReceiverInfo(input) {
         const receiverFullAddress = input.receiverFullAddress?.trim() ||

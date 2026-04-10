@@ -22,28 +22,30 @@ let OrderNumberService = class OrderNumberService {
         const now = (0, dayjs_util_1.dayjs)().tz(timezone);
         const bizDate = now.format('YYYY-MM-DD');
         const bizDateCode = now.format('YYYYMMDD');
-        await tx.$executeRawUnsafe(`
-      INSERT INTO order_sequences (biz_date, current_value, updated_at)
-      VALUES (?, 0, NOW(3))
-      ON DUPLICATE KEY UPDATE updated_at = NOW(3)
-      `, bizDate);
-        const rows = await tx.$queryRawUnsafe(`SELECT current_value FROM order_sequences WHERE biz_date = ? FOR UPDATE`, bizDate);
-        if (!rows.length) {
-            throw new Error('Failed to load order sequence');
-        }
         const maxOrderRows = await tx.$queryRawUnsafe(`
       SELECT MAX(CAST(SUBSTRING(order_no, 11) AS UNSIGNED)) AS max_value
       FROM orders
       WHERE order_no LIKE ?
       `, `ZN${bizDateCode}%`);
-        const persistedValue = rows[0].current_value;
         const existingMaxValue = maxOrderRows[0]?.max_value ?? 0;
-        const nextValue = Math.max(persistedValue, existingMaxValue) + 1;
+        await tx.$executeRawUnsafe(`
+      INSERT INTO order_sequences (biz_date, current_value, updated_at)
+      VALUES (?, ?, NOW(3))
+      ON DUPLICATE KEY UPDATE
+        current_value = GREATEST(current_value, VALUES(current_value)),
+        updated_at = NOW(3)
+      `, bizDate, existingMaxValue);
         await tx.$executeRawUnsafe(`
       UPDATE order_sequences
-      SET current_value = ?, updated_at = NOW(3)
+      SET current_value = LAST_INSERT_ID(GREATEST(current_value, ?) + 1),
+          updated_at = NOW(3)
       WHERE biz_date = ?
-      `, nextValue, bizDate);
+      `, existingMaxValue, bizDate);
+        const rows = await tx.$queryRawUnsafe(`SELECT LAST_INSERT_ID() AS current_value`);
+        const nextValue = Number(rows[0]?.current_value);
+        if (!Number.isInteger(nextValue) || nextValue < 1) {
+            throw new Error('Failed to generate order sequence');
+        }
         return `ZN${bizDateCode}${String(nextValue).padStart(3, '0')}`;
     }
 };
