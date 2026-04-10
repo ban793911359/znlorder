@@ -13,7 +13,6 @@
       multiple
       :max-count="maxCount"
       accept="image/*"
-      capture="environment"
       preview-size="88"
       :upload-text="uploadText"
       @delete="handleDelete"
