@@ -9,7 +9,7 @@ export class HealthController {
       success: true,
       data: {
         status: 'ok',
-        debugVersion: 'health-debug-v3',
+        debugVersion: 'health-debug-v4-order-fix',
         timestamp: new Date().toISOString(),
       },
     };
