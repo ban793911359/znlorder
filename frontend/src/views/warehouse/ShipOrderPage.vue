@@ -9,7 +9,7 @@
 
     <section-card title="商品信息">
       <div v-for="item in order.items" :key="item.id" class="detail-block">
-        <div class="detail-block__title">{{ item.productName }}</div>
+        <div class="detail-block__title">{{ item.productName || item.productSpec || '未填写商品名称' }}</div>
         <div v-if="item.images?.length" class="image-grid warehouse-image-grid">
           <template v-for="image in item.images" :key="image.id">
             <img

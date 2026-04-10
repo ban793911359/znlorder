@@ -42,6 +42,7 @@ model User {
   createdOrders Order[]     @relation("CreatedOrders")
   uploadedFiles UploadFile[]
   orderLogs    OrderStatusLog[]
+  orderDrafts  OrderDraft[]
 
   @@map("users")
 }
@@ -172,4 +173,17 @@ model OrderStatusLog {
 
   @@index([orderId], map: "idx_order_status_logs_order_id")
   @@map("order_status_logs")
+}
+
+model OrderDraft {
+  id        Int      @id @default(autoincrement())
+  ownerId   Int      @map("owner_id")
+  title     String?  @db.VarChar(100)
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  owner     User     @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId, updatedAt], map: "idx_order_drafts_owner_updated")
+  @@map("order_drafts")
 }

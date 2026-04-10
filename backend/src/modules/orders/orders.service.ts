@@ -19,6 +19,7 @@ import {
 import { PrismaService } from '../../database/prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
+import { SaveOrderDraftDto } from './dto/order-draft.dto';
 import { PublicOrderQueryDto } from './dto/public-order-query.dto';
 import { ShipOrderDto } from './dto/ship-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -42,6 +43,109 @@ export class OrdersService {
     private readonly configService: ConfigService,
   ) {}
 
+  async listOrderDrafts(currentUser: JwtUser) {
+    const drafts = await this.prisma.orderDraft.findMany({
+      where: { ownerId: currentUser.id },
+      orderBy: { updatedAt: 'desc' },
+      take: 20,
+    });
+
+    return {
+      success: true,
+      data: drafts.map((draft) => this.presentOrderDraft(draft)),
+    };
+  }
+
+  async getOrderDraft(id: number, currentUser: JwtUser) {
+    const draft = await this.prisma.orderDraft.findFirst({
+      where: {
+        id,
+        ownerId: currentUser.id,
+      },
+    });
+
+    if (!draft) {
+      throw new NotFoundException('Order draft not found');
+    }
+
+    return {
+      success: true,
+      data: this.presentOrderDraft(draft),
+    };
+  }
+
+  async saveOrderDraft(
+    saveOrderDraftDto: SaveOrderDraftDto,
+    currentUser: JwtUser,
+  ) {
+    const title = saveOrderDraftDto.title?.trim() || '未命名草稿';
+    const payload = saveOrderDraftDto.payload as Prisma.InputJsonValue;
+
+    if (saveOrderDraftDto.id) {
+      const existingDraft = await this.prisma.orderDraft.findFirst({
+        where: {
+          id: saveOrderDraftDto.id,
+          ownerId: currentUser.id,
+        },
+      });
+
+      if (!existingDraft) {
+        throw new NotFoundException('Order draft not found');
+      }
+
+      const updatedDraft = await this.prisma.orderDraft.update({
+        where: { id: saveOrderDraftDto.id },
+        data: {
+          title,
+          payload,
+        },
+      });
+
+      return {
+        success: true,
+        data: this.presentOrderDraft(updatedDraft),
+      };
+    }
+
+    const draft = await this.prisma.orderDraft.create({
+      data: {
+        ownerId: currentUser.id,
+        title,
+        payload,
+      },
+    });
+
+    return {
+      success: true,
+      data: this.presentOrderDraft(draft),
+    };
+  }
+
+  async deleteOrderDraft(id: number, currentUser: JwtUser) {
+    const existingDraft = await this.prisma.orderDraft.findFirst({
+      where: {
+        id,
+        ownerId: currentUser.id,
+      },
+    });
+
+    if (!existingDraft) {
+      throw new NotFoundException('Order draft not found');
+    }
+
+    await this.prisma.orderDraft.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+      data: {
+        id,
+        deleted: true,
+      },
+    };
+  }
+
   async createOrder(createOrderDto: CreateOrderDto, currentUser: JwtUser) {
     const receiverInfo = this.normalizeReceiverInfo({
       customerName: createOrderDto.customerName,
@@ -54,6 +158,8 @@ export class OrdersService {
       receiverCity: createOrderDto.receiverCity,
       receiverDistrict: createOrderDto.receiverDistrict,
     });
+
+    this.validateProductModelNos(createOrderDto.items);
 
     this.validateAmounts(
       createOrderDto.items,
@@ -143,7 +249,7 @@ export class OrdersService {
             const createdItem = await tx.orderItem.create({
               data: {
                 orderId: order.id,
-                productName: item.productName,
+                productName: item.productName?.trim() || '',
                 productSpec: item.productSpec,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
@@ -260,6 +366,8 @@ export class OrdersService {
         imageFileIds: item.images.map((image) => image.id),
       }));
 
+    this.validateProductModelNos(mergedItems);
+
     const receiverInfo = this.normalizeReceiverInfo({
       customerName: updateOrderDto.customerName ?? existingOrder.customer.name,
       customerMobile:
@@ -370,7 +478,7 @@ export class OrdersService {
           const createdItem = await tx.orderItem.create({
             data: {
               orderId: id,
-              productName: item.productName,
+              productName: item.productName?.trim() || '',
               productSpec: item.productSpec,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
@@ -979,6 +1087,7 @@ export class OrdersService {
   private validateAmounts(
     items: Array<{
       productName?: string;
+      productSpec?: string | null;
       quantity: number;
       unitPrice: number;
       lineAmount: number;
@@ -1008,6 +1117,29 @@ export class OrdersService {
     if (!almostEqualMoney(computedPayable, payableAmount)) {
       throw new BadRequestException('Payable amount is incorrect');
     }
+  }
+
+  private validateProductModelNos(
+    items: Array<{
+      productSpec?: string | null;
+    }>,
+  ) {
+    const invalidIndex = items.findIndex(
+      (item) => !this.extractModelNo(item.productSpec),
+    );
+
+    if (invalidIndex >= 0) {
+      throw new BadRequestException(`商品 ${invalidIndex + 1} 款号必填`);
+    }
+  }
+
+  private extractModelNo(productSpec?: string | null) {
+    return productSpec
+      ?.split('|')
+      .map((part) => part.trim())
+      .find((part) => part.startsWith('款号:'))
+      ?.replace('款号:', '')
+      .trim();
   }
 
   private collectItemImageFileIds(
@@ -1116,6 +1248,22 @@ export class OrdersService {
       : typeof error === 'object' && error !== null && 'code' in error
         ? String((error as { code?: unknown }).code)
         : undefined;
+  }
+
+  private presentOrderDraft(draft: {
+    id: number;
+    title: string | null;
+    payload: Prisma.JsonValue;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: draft.id,
+      title: draft.title,
+      payload: draft.payload,
+      createdAt: draft.createdAt,
+      updatedAt: draft.updatedAt,
+    };
   }
 
   private normalizeReceiverInfo(input: {

@@ -76,10 +76,22 @@
       />
       <van-field
         v-model.number="form.discountAmount"
-        type="digit"
+        type="number"
         label="优惠金额"
         placeholder="请输入优惠金额"
       />
+      <van-field
+        v-model="discountRateText"
+        type="number"
+        label="折扣换算"
+        placeholder="例如 9.5 表示 9.5 折"
+      >
+        <template #button>
+          <van-button size="small" type="primary" plain @click="applyDiscountRate">
+            计算优惠
+          </van-button>
+        </template>
+      </van-field>
       <info-row label="实收金额">
         <span class="highlight-money">{{ formatMoney(payableAmount) }}</span>
       </info-row>
@@ -132,8 +144,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { showFailToast } from 'vant';
+import { computed, ref } from 'vue';
+import { showFailToast, showSuccessToast } from 'vant';
 import { identifyCustomer } from '@/api/customers';
 import InfoRow from '@/components/common/InfoRow.vue';
 import SectionCard from '@/components/common/SectionCard.vue';
@@ -155,6 +167,8 @@ const form = defineModel<OrderFormModel>({
 const customerHint = defineModel<IdentifyCustomerResult | null>('customerHint', {
   default: null,
 });
+
+const discountRateText = ref('');
 
 const totalAmount = computed(() => computeTotalAmount(form.value.items));
 const payableAmount = computed(() =>
@@ -214,5 +228,18 @@ function applyLastShippingInfo() {
     [shippingInfo.receiverName, shippingInfo.receiverMobile, shippingInfo.receiverAddress]
       .filter(Boolean)
       .join(' ');
+}
+
+function applyDiscountRate() {
+  const rate = Number(discountRateText.value);
+
+  if (!Number.isFinite(rate) || rate <= 0 || rate > 10) {
+    showFailToast('请输入 0-10 之间的折扣，例如 9.5');
+    return;
+  }
+
+  const discountAmount = totalAmount.value * (10 - rate) / 10;
+  form.value.discountAmount = Number(discountAmount.toFixed(2));
+  showSuccessToast(`已按 ${rate} 折计算优惠`);
 }
 </script>

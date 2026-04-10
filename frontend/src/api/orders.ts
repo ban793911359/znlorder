@@ -3,6 +3,7 @@ import type { ApiResponse, PaginatedResult } from '@/types/common';
 import type {
   CreateOrderPayload,
   CreateOrderResponse,
+  OrderDraft,
   OrderDetail,
   OrderSummary,
   UpdateOrderPayload,
@@ -10,6 +11,35 @@ import type {
 
 export function createOrder(payload: CreateOrderPayload) {
   return http.post<never, ApiResponse<CreateOrderResponse>>('/orders', payload);
+}
+
+export function getOrderDrafts() {
+  return http.get<never, ApiResponse<OrderDraft[]>>('/orders/drafts');
+}
+
+export function getOrderDraft(draftId: number) {
+  return http.get<never, ApiResponse<OrderDraft>>(`/orders/drafts/${draftId}`);
+}
+
+export function saveOrderDraft(payload: {
+  id?: number;
+  title?: string;
+  payload: unknown;
+}) {
+  if (payload.id) {
+    return http.patch<never, ApiResponse<OrderDraft>>(
+      `/orders/drafts/${payload.id}`,
+      payload,
+    );
+  }
+
+  return http.post<never, ApiResponse<OrderDraft>>('/orders/drafts', payload);
+}
+
+export function deleteOrderDraft(draftId: number) {
+  return http.delete<never, ApiResponse<{ id: number; deleted: boolean }>>(
+    `/orders/drafts/${draftId}`,
+  );
 }
 
 export function updateOrder(orderId: number, payload: UpdateOrderPayload) {

@@ -19,7 +19,7 @@ export interface UploadedImage {
 
 export interface OrderItem {
   id?: number;
-  productName: string;
+  productName?: string;
   productSpec?: string | null;
   quantity: number;
   unitPrice: number;
@@ -141,4 +141,12 @@ export interface IdentifyCustomerResult {
     payableAmount: number;
     createdAt: string;
   }>;
+}
+
+export interface OrderDraft {
+  id: number;
+  title?: string | null;
+  payload: unknown;
+  createdAt: string;
+  updatedAt: string;
 }

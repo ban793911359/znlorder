@@ -27,6 +27,90 @@ let OrdersService = OrdersService_1 = class OrdersService {
         this.configService = configService;
         this.logger = new common_1.Logger(OrdersService_1.name);
     }
+    async listOrderDrafts(currentUser) {
+        const drafts = await this.prisma.orderDraft.findMany({
+            where: { ownerId: currentUser.id },
+            orderBy: { updatedAt: 'desc' },
+            take: 20,
+        });
+        return {
+            success: true,
+            data: drafts.map((draft) => this.presentOrderDraft(draft)),
+        };
+    }
+    async getOrderDraft(id, currentUser) {
+        const draft = await this.prisma.orderDraft.findFirst({
+            where: {
+                id,
+                ownerId: currentUser.id,
+            },
+        });
+        if (!draft) {
+            throw new common_1.NotFoundException('Order draft not found');
+        }
+        return {
+            success: true,
+            data: this.presentOrderDraft(draft),
+        };
+    }
+    async saveOrderDraft(saveOrderDraftDto, currentUser) {
+        const title = saveOrderDraftDto.title?.trim() || '未命名草稿';
+        const payload = saveOrderDraftDto.payload;
+        if (saveOrderDraftDto.id) {
+            const existingDraft = await this.prisma.orderDraft.findFirst({
+                where: {
+                    id: saveOrderDraftDto.id,
+                    ownerId: currentUser.id,
+                },
+            });
+            if (!existingDraft) {
+                throw new common_1.NotFoundException('Order draft not found');
+            }
+            const updatedDraft = await this.prisma.orderDraft.update({
+                where: { id: saveOrderDraftDto.id },
+                data: {
+                    title,
+                    payload,
+                },
+            });
+            return {
+                success: true,
+                data: this.presentOrderDraft(updatedDraft),
+            };
+        }
+        const draft = await this.prisma.orderDraft.create({
+            data: {
+                ownerId: currentUser.id,
+                title,
+                payload,
+            },
+        });
+        return {
+            success: true,
+            data: this.presentOrderDraft(draft),
+        };
+    }
+    async deleteOrderDraft(id, currentUser) {
+        const existingDraft = await this.prisma.orderDraft.findFirst({
+            where: {
+                id,
+                ownerId: currentUser.id,
+            },
+        });
+        if (!existingDraft) {
+            throw new common_1.NotFoundException('Order draft not found');
+        }
+        await this.prisma.orderDraft.delete({
+            where: { id },
+        });
+        return {
+            success: true,
+            data: {
+                id,
+                deleted: true,
+            },
+        };
+    }
     async createOrder(createOrderDto, currentUser) {
         const receiverInfo = this.normalizeReceiverInfo({
             customerName: createOrderDto.customerName,
@@ -39,6 +123,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
             receiverCity: createOrderDto.receiverCity,
             receiverDistrict: createOrderDto.receiverDistrict,
         });
+        this.validateProductModelNos(createOrderDto.items);
         this.validateAmounts(createOrderDto.items, createOrderDto.totalAmount, createOrderDto.shippingFee ?? 0, createOrderDto.discountAmount ?? 0, createOrderDto.payableAmount);
         const itemImageFileIds = this.collectItemImageFileIds(createOrderDto.items);
         await this.ensureUploadFilesAvailable(itemImageFileIds);
@@ -102,7 +187,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                         const createdItem = await tx.orderItem.create({
                             data: {
                                 orderId: order.id,
-                                productName: item.productName,
+                                productName: item.productName?.trim() || '',
                                 productSpec: item.productSpec,
                                 quantity: item.quantity,
                                 unitPrice: item.unitPrice,
@@ -194,6 +279,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 remark: item.remark ?? undefined,
                 imageFileIds: item.images.map((image) => image.id),
             }));
+        this.validateProductModelNos(mergedItems);
         const receiverInfo = this.normalizeReceiverInfo({
             customerName: updateOrderDto.customerName ?? existingOrder.customer.name,
             customerMobile: updateOrderDto.customerMobile ?? existingOrder.customer.mobile,
@@ -274,7 +360,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                     const createdItem = await tx.orderItem.create({
                         data: {
                             orderId: id,
-                            productName: item.productName,
+                            productName: item.productName?.trim() || '',
                             productSpec: item.productSpec,
                             quantity: item.quantity,
                             unitPrice: item.unitPrice,
@@ -833,6 +919,20 @@ let OrdersService = OrdersService_1 = class OrdersService {
             throw new common_1.BadRequestException('Payable amount is incorrect');
         }
     }
+    validateProductModelNos(items) {
+        const invalidIndex = items.findIndex((item) => !this.extractModelNo(item.productSpec));
+        if (invalidIndex >= 0) {
+            throw new common_1.BadRequestException(`商品 ${invalidIndex + 1} 款号必填`);
+        }
+    }
+    extractModelNo(productSpec) {
+        return productSpec
+            ?.split('|')
+            .map((part) => part.trim())
+            .find((part) => part.startsWith('款号:'))
+            ?.replace('款号:', '')
+            .trim();
+    }
     collectItemImageFileIds(items) {
         return items.flatMap((item) => item.imageFileIds ?? []);
     }
@@ -909,6 +1009,15 @@ let OrdersService = OrdersService_1 = class OrdersService {
             : typeof error === 'object' && error !== null && 'code' in error
                 ? String(error.code)
                 : undefined;
+    }
+    presentOrderDraft(draft) {
+        return {
+            id: draft.id,
+            title: draft.title,
+            payload: draft.payload,
+            createdAt: draft.createdAt,
+            updatedAt: draft.updatedAt,
+        };
     }
     normalizeReceiverInfo(input) {
         const receiverFullAddress = input.receiverFullAddress?.trim() ||

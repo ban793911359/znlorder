@@ -175,7 +175,7 @@ export function computePayableAmount(
 
 export function buildCreatePayload(form: OrderFormModel): CreateOrderPayload {
   const items: OrderItem[] = form.items.map((item) => ({
-    productName: item.productName,
+    productName: item.productName?.trim() || '',
     productSpec: buildProductSpec(item),
     quantity: Number(item.quantity),
     unitPrice: Number(item.unitPrice),
@@ -216,6 +216,31 @@ export function buildCreatePayload(form: OrderFormModel): CreateOrderPayload {
   };
 }
 
+export function validateOrderFormForSubmit(form: OrderFormModel) {
+  if (!form.customerName.trim()) {
+    return '请输入客户备注名';
+  }
+
+  if (!/^1\d{10}$/.test(form.customerMobile.trim())) {
+    return '请输入正确的客户手机号';
+  }
+
+  if (!form.receiverFullAddress.trim()) {
+    return '请输入完整地址';
+  }
+
+  const invalidModelIndex = form.items.findIndex((item) => !item.modelNo.trim());
+  if (invalidModelIndex >= 0) {
+    return `商品 ${invalidModelIndex + 1} 款号必填`;
+  }
+
+  return null;
+}
+
+export function buildClientShareText(orderNo: string, clientLink: string) {
+  return `订单号：${orderNo}\n查看订单：${clientLink}`;
+}
+
 export function buildFormFromOrderDetail(order: OrderDetail): OrderFormModel {
   const remarks = parseRemarks(order.operatorRemark);
   const hasItemImages = order.items.some((item) => (item.images || []).length > 0);
@@ -249,7 +274,7 @@ export function buildFormFromOrderDetail(order: OrderDetail): OrderFormModel {
             ? order.images.filter(isActiveImage)
             : [];
       return {
-        productName: item.productName,
+        productName: item.productName || '',
         modelNo: spec.modelNo,
         color: spec.color,
         size: spec.size,

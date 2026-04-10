@@ -16,8 +16,8 @@ class OrderItemInputDto {
 }
 exports.OrderItemInputDto = OrderItemInputDto;
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.MaxLength)(100),
     __metadata("design:type", String)
 ], OrderItemInputDto.prototype, "productName", void 0);

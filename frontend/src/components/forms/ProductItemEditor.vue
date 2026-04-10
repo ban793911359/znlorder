@@ -13,8 +13,13 @@
       </van-button>
     </div>
 
-    <van-field v-model="model.productName" label="商品名称" placeholder="请输入商品名称" />
-    <van-field v-model="model.modelNo" label="款号" placeholder="请输入款号" />
+    <van-field v-model="model.productName" label="商品名称" placeholder="选填" />
+    <van-field
+      v-model="model.modelNo"
+      label="款号"
+      placeholder="必填"
+      required
+    />
     <van-field v-model="model.color" label="颜色" placeholder="请输入颜色" />
     <van-field v-model="model.size" label="尺码" placeholder="请输入尺码" />
     <image-uploader v-model="imageList" />

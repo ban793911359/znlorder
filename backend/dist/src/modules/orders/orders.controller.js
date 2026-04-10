@@ -21,6 +21,7 @@ const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const create_order_dto_1 = require("./dto/create-order.dto");
 const list_orders_query_dto_1 = require("./dto/list-orders-query.dto");
+const order_draft_dto_1 = require("./dto/order-draft.dto");
 const update_order_dto_1 = require("./dto/update-order.dto");
 const orders_service_1 = require("./orders.service");
 const cancel_order_dto_1 = require("./dto/cancel-order.dto");
@@ -30,6 +31,21 @@ let OrdersController = class OrdersController {
     }
     createOrder(createOrderDto, currentUser) {
         return this.ordersService.createOrder(createOrderDto, currentUser);
+    }
+    listDrafts(currentUser) {
+        return this.ordersService.listOrderDrafts(currentUser);
+    }
+    saveDraft(saveOrderDraftDto, currentUser) {
+        return this.ordersService.saveOrderDraft(saveOrderDraftDto, currentUser);
+    }
+    getDraft(id, currentUser) {
+        return this.ordersService.getOrderDraft(id, currentUser);
+    }
+    updateDraft(id, saveOrderDraftDto, currentUser) {
+        return this.ordersService.saveOrderDraft({ ...saveOrderDraftDto, id }, currentUser);
+    }
+    deleteDraft(id, currentUser) {
+        return this.ordersService.deleteOrderDraft(id, currentUser);
     }
     listOrders(query) {
         return this.ordersService.listOrders(query);
@@ -54,6 +70,51 @@ __decorate([
     __metadata("design:paramtypes", [create_order_dto_1.CreateOrderDto, Object]),
     __metadata("design:returntype", void 0)
 ], OrdersController.prototype, "createOrder", null);
+__decorate([
+    (0, common_1.Get)('drafts'),
+    (0, roles_decorator_1.Roles)(client_1.UserRole.operator),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "listDrafts", null);
+__decorate([
+    (0, common_1.Post)('drafts'),
+    (0, roles_decorator_1.Roles)(client_1.UserRole.operator),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [order_draft_dto_1.SaveOrderDraftDto, Object]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "saveDraft", null);
+__decorate([
+    (0, common_1.Get)('drafts/:id'),
+    (0, roles_decorator_1.Roles)(client_1.UserRole.operator),
+    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Object]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "getDraft", null);
+__decorate([
+    (0, common_1.Patch)('drafts/:id'),
+    (0, roles_decorator_1.Roles)(client_1.UserRole.operator),
+    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, order_draft_dto_1.SaveOrderDraftDto, Object]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "updateDraft", null);
+__decorate([
+    (0, common_1.Delete)('drafts/:id'),
+    (0, roles_decorator_1.Roles)(client_1.UserRole.operator),
+    __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Object]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "deleteDraft", null);
 __decorate([
     (0, common_1.Get)(),
     (0, roles_decorator_1.Roles)(client_1.UserRole.operator),

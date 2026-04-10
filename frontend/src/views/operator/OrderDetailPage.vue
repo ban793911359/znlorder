@@ -17,7 +17,7 @@
           :disabled="!savedClientLink?.clientLink"
           @click="copyClientLink"
         >
-          复制客户链接
+          复制客户分享文案
         </van-button>
         <van-button plain type="primary" size="small" @click="toCustomerPage">
           查看客户详情
@@ -39,7 +39,7 @@
 
     <section-card title="商品明细">
       <div v-for="item in detail.items" :key="item.id" class="detail-block">
-        <div class="detail-block__title">{{ item.productName }}</div>
+        <div class="detail-block__title">{{ item.productName || item.productSpec || '未填写商品名称' }}</div>
         <div v-if="item.images?.length" class="image-grid order-item-image-grid">
           <template v-for="image in item.images" :key="image.id">
             <img
@@ -124,7 +124,13 @@ import {
   isImageAvailable,
   resolveMediaUrl,
 } from '@/utils/format';
-import { buildCreatePayload, buildFormFromOrderDetail, parseRemarks } from '@/utils/order';
+import {
+  buildClientShareText,
+  buildCreatePayload,
+  buildFormFromOrderDetail,
+  parseRemarks,
+  validateOrderFormForSubmit,
+} from '@/utils/order';
 import { loadJSON, saveJSON } from '@/utils/storage';
 
 const route = useRoute();
@@ -144,7 +150,7 @@ const canCancel = computed(() =>
 const clientLinkText = computed(() => {
   const normalized = getNormalizedClientLink();
   if (normalized) {
-    return normalized;
+    return `订单号：${detail.value?.orderNo || savedClientLink.value?.orderNo}`;
   }
 
   if (detail.value?.clientLinkPath) {
@@ -203,17 +209,19 @@ async function cancelCurrentOrder() {
 
 async function copyClientLink() {
   const clientLink = getNormalizedClientLink();
-  if (!clientLink) {
+  const orderNo = detail.value?.orderNo || savedClientLink.value?.orderNo;
+  if (!clientLink || !orderNo) {
     showFailToast('当前设备没有保存该订单的完整客户链接');
     return;
   }
 
+  const shareText = buildClientShareText(orderNo, clientLink);
   try {
     if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(clientLink);
+      await navigator.clipboard.writeText(shareText);
     } else {
       const textarea = document.createElement('textarea');
-      textarea.value = clientLink;
+      textarea.value = shareText;
       textarea.style.position = 'fixed';
       textarea.style.opacity = '0';
       document.body.appendChild(textarea);
@@ -223,7 +231,7 @@ async function copyClientLink() {
       document.body.removeChild(textarea);
     }
 
-    showSuccessToast('客户链接已复制');
+    showSuccessToast('客户分享文案已复制');
   } catch {
     showFailToast('复制失败，请手动复制');
   }
@@ -256,6 +264,12 @@ async function submitEdit() {
 
   saving.value = true;
   try {
+    const validationMessage = validateOrderFormForSubmit(editForm.value);
+    if (validationMessage) {
+      showFailToast(validationMessage);
+      return;
+    }
+
     await updateOrder(Number(route.params.id), buildCreatePayload(editForm.value));
     showSuccessToast('订单已更新');
     editing.value = false;

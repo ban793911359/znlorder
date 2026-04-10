@@ -2,7 +2,6 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsInt,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -11,10 +10,10 @@ import {
 } from 'class-validator';
 
 export class OrderItemInputDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(100)
-  productName!: string;
+  productName?: string;
 
   @IsOptional()
   @IsString()
