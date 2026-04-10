@@ -14,11 +14,15 @@ export function createOrder(payload: CreateOrderPayload) {
 }
 
 export function getOrderDrafts() {
-  return http.get<never, ApiResponse<OrderDraft[]>>('/orders/drafts');
+  return http.get<never, ApiResponse<OrderDraft[]>>('/orders/drafts', {
+    silent: true,
+  } as never);
 }
 
 export function getOrderDraft(draftId: number) {
-  return http.get<never, ApiResponse<OrderDraft>>(`/orders/drafts/${draftId}`);
+  return http.get<never, ApiResponse<OrderDraft>>(`/orders/drafts/${draftId}`, {
+    silent: true,
+  } as never);
 }
 
 export function saveOrderDraft(payload: {
@@ -30,15 +34,19 @@ export function saveOrderDraft(payload: {
     return http.patch<never, ApiResponse<OrderDraft>>(
       `/orders/drafts/${payload.id}`,
       payload,
+      { silent: true } as never,
     );
   }
 
-  return http.post<never, ApiResponse<OrderDraft>>('/orders/drafts', payload);
+  return http.post<never, ApiResponse<OrderDraft>>('/orders/drafts', payload, {
+    silent: true,
+  } as never);
 }
 
 export function deleteOrderDraft(draftId: number) {
   return http.delete<never, ApiResponse<{ id: number; deleted: boolean }>>(
     `/orders/drafts/${draftId}`,
+    { silent: true } as never,
   );
 }
 

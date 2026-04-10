@@ -81,22 +81,29 @@ async function loadDrafts() {
   try {
     const response = await getOrderDrafts();
     drafts.value = response.data;
+  } catch {
+    drafts.value = [];
   } finally {
     draftLoading.value = false;
   }
 }
 
 async function saveDraft() {
-  const response = await saveOrderDraft({
-    id: currentDraftId.value ?? undefined,
-    title: buildDraftTitle(form.value),
-    payload: cloneForm(form.value),
-  });
-
-  currentDraftId.value = response.data.id;
   saveJSON(DRAFT_STORAGE_KEY, form.value);
-  await loadDrafts();
-  showSuccessToast('草稿已保存到云端');
+
+  try {
+    const response = await saveOrderDraft({
+      id: currentDraftId.value ?? undefined,
+      title: buildDraftTitle(form.value),
+      payload: cloneForm(form.value),
+    });
+
+    currentDraftId.value = response.data.id;
+    await loadDrafts();
+    showSuccessToast('草稿已保存到云端');
+  } catch {
+    showFailToast('云端草稿暂不可用，已先保存到本地');
+  }
 }
 
 function loadDraft(draft: OrderDraft) {
@@ -118,12 +125,16 @@ async function deleteDraft(draft: OrderDraft) {
     return;
   }
 
-  await deleteOrderDraft(draft.id);
-  if (currentDraftId.value === draft.id) {
-    currentDraftId.value = null;
+  try {
+    await deleteOrderDraft(draft.id);
+    if (currentDraftId.value === draft.id) {
+      currentDraftId.value = null;
+    }
+    await loadDrafts();
+    showSuccessToast('草稿已删除');
+  } catch {
+    showFailToast('云端草稿删除失败，请稍后重试');
   }
-  await loadDrafts();
-  showSuccessToast('草稿已删除');
 }
 
 async function submitOrder() {
