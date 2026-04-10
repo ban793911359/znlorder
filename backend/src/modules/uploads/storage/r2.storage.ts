@@ -6,6 +6,7 @@ import {
 import {
   Injectable,
   InternalServerErrorException,
+  Logger,
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -18,23 +19,28 @@ import {
 export class R2OrderImageStorage
   implements OrderImageStorage, OnModuleDestroy
 {
+  private readonly logger = new Logger(R2OrderImageStorage.name);
   private readonly client: S3Client | null;
   private readonly bucket: string;
   private readonly publicBaseUrl: string;
   private readonly keyPrefix: string;
 
   constructor(private readonly configService: ConfigService) {
-    const accountId = this.configService.get<string>('R2_ACCOUNT_ID', '').trim();
-    const accessKeyId = this.configService
-      .get<string>('R2_ACCESS_KEY_ID', '')
-      .trim();
-    const secretAccessKey = this.configService
-      .get<string>('R2_SECRET_ACCESS_KEY', '')
-      .trim();
-    this.bucket = this.configService.get<string>('R2_BUCKET', '').trim();
-    this.publicBaseUrl = this.configService
-      .get<string>('UPLOAD_PUBLIC_BASE_URL', '')
-      .trim();
+    const accountId = this.normalizeAccountId(
+      this.configService.get<string>('R2_ACCOUNT_ID', ''),
+    );
+    const accessKeyId = this.cleanConfigValue(
+      this.configService.get<string>('R2_ACCESS_KEY_ID', ''),
+    );
+    const secretAccessKey = this.cleanConfigValue(
+      this.configService.get<string>('R2_SECRET_ACCESS_KEY', ''),
+    );
+    this.bucket = this.cleanConfigValue(
+      this.configService.get<string>('R2_BUCKET', ''),
+    );
+    this.publicBaseUrl = this.cleanConfigValue(
+      this.configService.get<string>('UPLOAD_PUBLIC_BASE_URL', ''),
+    ).replace(/\/$/, '');
     const configuredPrefix = (
       this.configService.get<string>('R2_BUCKET_PREFIX', 'order-images') ??
       'order-images'
@@ -43,18 +49,27 @@ export class R2OrderImageStorage
       /^\/+|\/+$/g,
       '',
     );
+    const endpoint = accountId
+      ? `https://${accountId}.r2.cloudflarestorage.com`
+      : '';
 
     this.client =
       accountId && accessKeyId && secretAccessKey
         ? new S3Client({
             region: 'auto',
-            endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+            endpoint,
             credentials: {
               accessKeyId,
               secretAccessKey,
             },
           })
         : null;
+
+    if (this.client) {
+      this.logger.log(
+        `R2 storage configured: endpointHost=${new URL(endpoint).host}, bucket=${this.bucket || '(missing)'}, prefix=${this.keyPrefix}, publicBaseUrl=${this.publicBaseUrl || '(missing)'}`,
+      );
+    }
   }
 
   async saveImage(input: {
@@ -80,7 +95,7 @@ export class R2OrderImageStorage
       storageDriver: 'r2',
       storageKey,
       fileName: input.fileName,
-      fileUrl: `${this.publicBaseUrl.replace(/\/$/, '')}/${storageKey}`,
+      fileUrl: `${this.publicBaseUrl}/${storageKey}`,
     };
   }
 
@@ -106,5 +121,22 @@ export class R2OrderImageStorage
     }
 
     return this.client;
+  }
+
+  private cleanConfigValue(value: string | undefined | null) {
+    return String(value ?? '')
+      .trim()
+      .replace(/^['"]|['"]$/g, '')
+      .replace(/^[A-Z0-9_]+\s*=\s*/i, '')
+      .replace(/^=+/, '')
+      .trim();
+  }
+
+  private normalizeAccountId(value: string | undefined | null) {
+    return this.cleanConfigValue(value)
+      .replace(/^https?:\/\//i, '')
+      .replace(/\.r2\.cloudflarestorage\.com\/?$/i, '')
+      .replace(/^=+/, '')
+      .trim();
   }
 }

@@ -8,39 +8,41 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var R2OrderImageStorage_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.R2OrderImageStorage = void 0;
 const client_s3_1 = require("@aws-sdk/client-s3");
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-let R2OrderImageStorage = class R2OrderImageStorage {
+let R2OrderImageStorage = R2OrderImageStorage_1 = class R2OrderImageStorage {
     constructor(configService) {
         this.configService = configService;
-        const accountId = this.configService.get('R2_ACCOUNT_ID', '').trim();
-        const accessKeyId = this.configService
-            .get('R2_ACCESS_KEY_ID', '')
-            .trim();
-        const secretAccessKey = this.configService
-            .get('R2_SECRET_ACCESS_KEY', '')
-            .trim();
-        this.bucket = this.configService.get('R2_BUCKET', '').trim();
-        this.publicBaseUrl = this.configService
-            .get('UPLOAD_PUBLIC_BASE_URL', '')
-            .trim();
+        this.logger = new common_1.Logger(R2OrderImageStorage_1.name);
+        const accountId = this.normalizeAccountId(this.configService.get('R2_ACCOUNT_ID', ''));
+        const accessKeyId = this.cleanConfigValue(this.configService.get('R2_ACCESS_KEY_ID', ''));
+        const secretAccessKey = this.cleanConfigValue(this.configService.get('R2_SECRET_ACCESS_KEY', ''));
+        this.bucket = this.cleanConfigValue(this.configService.get('R2_BUCKET', ''));
+        this.publicBaseUrl = this.cleanConfigValue(this.configService.get('UPLOAD_PUBLIC_BASE_URL', '')).replace(/\/$/, '');
         const configuredPrefix = (this.configService.get('R2_BUCKET_PREFIX', 'order-images') ??
             'order-images').trim();
         this.keyPrefix = (configuredPrefix || 'order-images').replace(/^\/+|\/+$/g, '');
+        const endpoint = accountId
+            ? `https://${accountId}.r2.cloudflarestorage.com`
+            : '';
         this.client =
             accountId && accessKeyId && secretAccessKey
                 ? new client_s3_1.S3Client({
                     region: 'auto',
-                    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+                    endpoint,
                     credentials: {
                         accessKeyId,
                         secretAccessKey,
                     },
                 })
                 : null;
+        if (this.client) {
+            this.logger.log(`R2 storage configured: endpointHost=${new URL(endpoint).host}, bucket=${this.bucket || '(missing)'}, prefix=${this.keyPrefix}, publicBaseUrl=${this.publicBaseUrl || '(missing)'}`);
+        }
     }
     async saveImage(input) {
         const storageKey = [this.keyPrefix, 'images', input.fileName]
@@ -57,7 +59,7 @@ let R2OrderImageStorage = class R2OrderImageStorage {
             storageDriver: 'r2',
             storageKey,
             fileName: input.fileName,
-            fileUrl: `${this.publicBaseUrl.replace(/\/$/, '')}/${storageKey}`,
+            fileUrl: `${this.publicBaseUrl}/${storageKey}`,
         };
     }
     async deleteObject(storageKey) {
@@ -76,9 +78,24 @@ let R2OrderImageStorage = class R2OrderImageStorage {
         }
         return this.client;
     }
+    cleanConfigValue(value) {
+        return String(value ?? '')
+            .trim()
+            .replace(/^['"]|['"]$/g, '')
+            .replace(/^[A-Z0-9_]+\s*=\s*/i, '')
+            .replace(/^=+/, '')
+            .trim();
+    }
+    normalizeAccountId(value) {
+        return this.cleanConfigValue(value)
+            .replace(/^https?:\/\//i, '')
+            .replace(/\.r2\.cloudflarestorage\.com\/?$/i, '')
+            .replace(/^=+/, '')
+            .trim();
+    }
 };
 exports.R2OrderImageStorage = R2OrderImageStorage;
-exports.R2OrderImageStorage = R2OrderImageStorage = __decorate([
+exports.R2OrderImageStorage = R2OrderImageStorage = R2OrderImageStorage_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [config_1.ConfigService])
 ], R2OrderImageStorage);
