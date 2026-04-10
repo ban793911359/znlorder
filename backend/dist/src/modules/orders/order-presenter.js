@@ -5,6 +5,21 @@ exports.presentOrderImages = presentOrderImages;
 exports.presentOrderLogs = presentOrderLogs;
 exports.presentOrderBase = presentOrderBase;
 const decimal_util_1 = require("../../common/utils/decimal.util");
+function resolveUploadFileUrl(image) {
+    if (image.storageDriver === 'r2' && image.storageKey) {
+        const publicBaseUrl = (process.env.UPLOAD_PUBLIC_BASE_URL ?? '').trim();
+        const prefix = ((process.env.R2_BUCKET_PREFIX ?? 'order-images').trim() ||
+            'order-images')
+            .replace(/^\/+|\/+$/g, '');
+        const normalizedStorageKey = image.storageKey.startsWith(`${prefix}/`)
+            ? image.storageKey
+            : `${prefix}/${image.storageKey.replace(/^\/+/, '')}`;
+        if (publicBaseUrl) {
+            return `${publicBaseUrl.replace(/\/$/, '')}/${normalizedStorageKey}`;
+        }
+    }
+    return image.fileUrl;
+}
 function presentOrderItems(items) {
     return items.map((item) => ({
         id: item.id,
@@ -25,7 +40,7 @@ function presentOrderImages(images) {
         fileName: image.fileName,
         mimeType: image.mimeType,
         fileSize: image.fileSize,
-        fileUrl: image.fileUrl,
+        fileUrl: resolveUploadFileUrl(image),
         expiresAt: image.expiresAt,
         deletedAt: image.deletedAt,
         available: image.deletedAt === null && new Date(image.expiresAt).getTime() > now,

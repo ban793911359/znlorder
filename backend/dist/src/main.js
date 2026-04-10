@@ -19,7 +19,8 @@ async function bootstrap() {
         forbidNonWhitelisted: true,
     }));
     app.useGlobalFilters(new all_exceptions_filter_1.AllExceptionsFilter());
-    const allowedOrigins = configService
+    const normalizeOrigin = (value) => value.trim().replace(/\/+$/, '');
+    const configuredOrigins = configService
         .get('CORS_ORIGINS', [
         'http://localhost:5173',
         'http://127.0.0.1:5173',
@@ -31,9 +32,13 @@ async function bootstrap() {
         .split(',')
         .map((item) => item.trim())
         .filter(Boolean);
+    const h5BaseUrl = configService.get('H5_BASE_URL', '').trim();
+    const allowedOrigins = new Set([...configuredOrigins, h5BaseUrl]
+        .filter(Boolean)
+        .map((item) => normalizeOrigin(item)));
     app.enableCors({
         origin: (origin, callback) => {
-            if (!origin || allowedOrigins.includes(origin)) {
+            if (!origin || allowedOrigins.has(normalizeOrigin(origin))) {
                 callback(null, true);
                 return;
             }

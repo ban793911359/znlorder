@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var OrdersService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrdersService = void 0;
 const common_1 = require("@nestjs/common");
@@ -19,7 +20,7 @@ const public_token_util_1 = require("../../common/utils/public-token.util");
 const prisma_service_1 = require("../../database/prisma/prisma.service");
 const order_presenter_1 = require("./order-presenter");
 const order_number_service_1 = require("./order-number.service");
-let OrdersService = class OrdersService {
+let OrdersService = OrdersService_1 = class OrdersService {
     constructor(prisma, orderNumberService, configService) {
         this.prisma = prisma;
         this.orderNumberService = orderNumberService;
@@ -40,101 +41,119 @@ let OrdersService = class OrdersService {
         this.validateAmounts(createOrderDto.items, createOrderDto.totalAmount, createOrderDto.shippingFee ?? 0, createOrderDto.discountAmount ?? 0, createOrderDto.payableAmount);
         const itemImageFileIds = this.collectItemImageFileIds(createOrderDto.items);
         await this.ensureUploadFilesAvailable(itemImageFileIds);
-        const result = await this.prisma.$transaction(async (tx) => {
-            const now = new Date();
-            const customer = await tx.customer.upsert({
-                where: { mobile: createOrderDto.customerMobile },
-                update: {
-                    name: createOrderDto.customerName,
-                    wechatNickname: createOrderDto.wechatNickname,
-                    receiverName: receiverInfo.receiverName,
-                    receiverMobile: receiverInfo.receiverMobile,
-                    receiverProvince: null,
-                    receiverCity: null,
-                    receiverDistrict: null,
-                    receiverAddress: receiverInfo.receiverFullAddress,
-                    lastOrderAt: now,
-                },
-                create: {
-                    name: createOrderDto.customerName,
-                    mobile: createOrderDto.customerMobile,
-                    wechatNickname: createOrderDto.wechatNickname,
-                    receiverName: receiverInfo.receiverName,
-                    receiverMobile: receiverInfo.receiverMobile,
-                    receiverProvince: null,
-                    receiverCity: null,
-                    receiverDistrict: null,
-                    receiverAddress: receiverInfo.receiverFullAddress,
-                    lastOrderAt: now,
-                },
-            });
-            const orderNo = await this.orderNumberService.generateNextOrderNo(tx);
-            const { rawToken, tokenHash } = (0, public_token_util_1.generatePublicToken)();
-            const clientLinkPath = `/client/orders/${orderNo}`;
-            const order = await tx.order.create({
-                data: {
-                    orderNo,
-                    customerId: customer.id,
-                    status: client_1.OrderStatus.pending_shipment,
-                    clientTokenHash: tokenHash,
-                    clientLinkPath,
-                    createdById: currentUser.id,
-                    receiverName: receiverInfo.receiverName,
-                    receiverMobile: receiverInfo.receiverMobile,
-                    receiverProvince: null,
-                    receiverCity: null,
-                    receiverDistrict: null,
-                    receiverAddress: receiverInfo.receiverFullAddress,
-                    totalAmount: createOrderDto.totalAmount,
-                    shippingFee: createOrderDto.shippingFee ?? 0,
-                    discountAmount: createOrderDto.discountAmount ?? 0,
-                    payableAmount: createOrderDto.payableAmount,
-                    operatorRemark: createOrderDto.operatorRemark,
-                },
-            });
-            for (const item of createOrderDto.items) {
-                const createdItem = await tx.orderItem.create({
-                    data: {
-                        orderId: order.id,
-                        productName: item.productName,
-                        productSpec: item.productSpec,
-                        quantity: item.quantity,
-                        unitPrice: item.unitPrice,
-                        lineAmount: item.lineAmount,
-                        remark: item.remark,
-                    },
-                });
-                if ((item.imageFileIds ?? []).length > 0) {
-                    await tx.uploadFile.updateMany({
-                        where: {
-                            id: { in: item.imageFileIds },
+        let lastError;
+        let result;
+        for (let attempt = 1; attempt <= OrdersService_1.ORDER_NO_RETRY_TIMES; attempt += 1) {
+            try {
+                result = await this.prisma.$transaction(async (tx) => {
+                    const now = new Date();
+                    const customer = await tx.customer.upsert({
+                        where: { mobile: createOrderDto.customerMobile },
+                        update: {
+                            name: createOrderDto.customerName,
+                            wechatNickname: createOrderDto.wechatNickname,
+                            receiverName: receiverInfo.receiverName,
+                            receiverMobile: receiverInfo.receiverMobile,
+                            receiverProvince: null,
+                            receiverCity: null,
+                            receiverDistrict: null,
+                            receiverAddress: receiverInfo.receiverFullAddress,
+                            lastOrderAt: now,
                         },
-                        data: {
-                            orderId: order.id,
-                            orderItemId: createdItem.id,
+                        create: {
+                            name: createOrderDto.customerName,
+                            mobile: createOrderDto.customerMobile,
+                            wechatNickname: createOrderDto.wechatNickname,
+                            receiverName: receiverInfo.receiverName,
+                            receiverMobile: receiverInfo.receiverMobile,
+                            receiverProvince: null,
+                            receiverCity: null,
+                            receiverDistrict: null,
+                            receiverAddress: receiverInfo.receiverFullAddress,
+                            lastOrderAt: now,
                         },
                     });
-                }
+                    const orderNo = await this.orderNumberService.generateNextOrderNo(tx);
+                    const { rawToken, tokenHash } = (0, public_token_util_1.generatePublicToken)();
+                    const clientLinkPath = `/client/orders/${orderNo}`;
+                    const order = await tx.order.create({
+                        data: {
+                            orderNo,
+                            customerId: customer.id,
+                            status: client_1.OrderStatus.pending_shipment,
+                            clientTokenHash: tokenHash,
+                            clientLinkPath,
+                            createdById: currentUser.id,
+                            receiverName: receiverInfo.receiverName,
+                            receiverMobile: receiverInfo.receiverMobile,
+                            receiverProvince: null,
+                            receiverCity: null,
+                            receiverDistrict: null,
+                            receiverAddress: receiverInfo.receiverFullAddress,
+                            totalAmount: createOrderDto.totalAmount,
+                            shippingFee: createOrderDto.shippingFee ?? 0,
+                            discountAmount: createOrderDto.discountAmount ?? 0,
+                            payableAmount: createOrderDto.payableAmount,
+                            operatorRemark: createOrderDto.operatorRemark,
+                        },
+                    });
+                    for (const item of createOrderDto.items) {
+                        const createdItem = await tx.orderItem.create({
+                            data: {
+                                orderId: order.id,
+                                productName: item.productName,
+                                productSpec: item.productSpec,
+                                quantity: item.quantity,
+                                unitPrice: item.unitPrice,
+                                lineAmount: item.lineAmount,
+                                remark: item.remark,
+                            },
+                        });
+                        if ((item.imageFileIds ?? []).length > 0) {
+                            await tx.uploadFile.updateMany({
+                                where: {
+                                    id: { in: item.imageFileIds },
+                                },
+                                data: {
+                                    orderId: order.id,
+                                    orderItemId: createdItem.id,
+                                },
+                            });
+                        }
+                    }
+                    await tx.orderStatusLog.create({
+                        data: {
+                            orderId: order.id,
+                            fromStatus: null,
+                            toStatus: client_1.OrderStatus.pending_shipment,
+                            action: 'create_order',
+                            operatorId: currentUser.id,
+                            note: 'Order created by operator',
+                        },
+                    });
+                    return {
+                        orderId: order.id,
+                        orderNo,
+                        status: client_1.OrderStatus.pending_shipment,
+                        clientToken: rawToken,
+                        clientLinkPath,
+                        clientLink: this.buildClientLink(orderNo, rawToken),
+                    };
+                });
+                break;
             }
-            await tx.orderStatusLog.create({
-                data: {
-                    orderId: order.id,
-                    fromStatus: null,
-                    toStatus: client_1.OrderStatus.pending_shipment,
-                    action: 'create_order',
-                    operatorId: currentUser.id,
-                    note: 'Order created by operator',
-                },
-            });
-            return {
-                orderId: order.id,
-                orderNo,
-                status: client_1.OrderStatus.pending_shipment,
-                clientToken: rawToken,
-                clientLinkPath,
-                clientLink: this.buildClientLink(orderNo, rawToken),
-            };
-        });
+            catch (error) {
+                lastError = error;
+                if (attempt < OrdersService_1.ORDER_NO_RETRY_TIMES &&
+                    this.isOrderNoUniqueConflict(error)) {
+                    continue;
+                }
+                throw error;
+            }
+        }
+        if (!result) {
+            throw lastError ?? new Error('Failed to create order');
+        }
         return {
             success: true,
             data: result,
@@ -853,6 +872,17 @@ let OrdersService = class OrdersService {
         const value = matched.replace('【仓库备注】', '').trim();
         return value === '--' ? null : value;
     }
+    isOrderNoUniqueConflict(error) {
+        const target = error instanceof client_1.Prisma.PrismaClientKnownRequestError
+            ? error.meta?.target
+            : undefined;
+        const matchedTarget = Array.isArray(target)
+            ? target.includes('orders_order_no_key')
+            : target === 'orders_order_no_key';
+        return (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002' &&
+            matchedTarget);
+    }
     normalizeReceiverInfo(input) {
         const receiverFullAddress = input.receiverFullAddress?.trim() ||
             [
@@ -893,7 +923,8 @@ let OrdersService = class OrdersService {
     }
 };
 exports.OrdersService = OrdersService;
-exports.OrdersService = OrdersService = __decorate([
+OrdersService.ORDER_NO_RETRY_TIMES = 3;
+exports.OrdersService = OrdersService = OrdersService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         order_number_service_1.OrderNumberService,

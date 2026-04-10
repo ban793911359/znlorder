@@ -31,7 +31,14 @@ let OrderNumberService = class OrderNumberService {
         if (!rows.length) {
             throw new Error('Failed to load order sequence');
         }
-        const nextValue = rows[0].current_value + 1;
+        const maxOrderRows = await tx.$queryRawUnsafe(`
+      SELECT MAX(CAST(SUBSTRING(order_no, 11) AS UNSIGNED)) AS max_value
+      FROM orders
+      WHERE order_no LIKE ?
+      `, `ZN${bizDateCode}%`);
+        const persistedValue = rows[0].current_value;
+        const existingMaxValue = maxOrderRows[0]?.max_value ?? 0;
+        const nextValue = Math.max(persistedValue, existingMaxValue) + 1;
         await tx.$executeRawUnsafe(`
       UPDATE order_sequences
       SET current_value = ?, updated_at = NOW(3)

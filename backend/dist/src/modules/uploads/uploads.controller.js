@@ -18,9 +18,6 @@ const config_1 = require("@nestjs/config");
 const client_1 = require("@prisma/client");
 const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
-const node_crypto_1 = require("node:crypto");
-const node_fs_1 = require("node:fs");
-const node_path_1 = require("node:path");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
@@ -48,18 +45,7 @@ __decorate([
     (0, common_1.Post)('images'),
     (0, roles_decorator_1.Roles)(client_1.UserRole.operator),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
-        storage: (0, multer_1.diskStorage)({
-            destination: (_request, _file, callback) => {
-                const uploadDir = process.env.UPLOAD_DIR || 'uploads';
-                const destination = (0, node_path_1.join)(process.cwd(), uploadDir, 'images');
-                (0, node_fs_1.mkdirSync)(destination, { recursive: true });
-                callback(null, destination);
-            },
-            filename: (_request, file, callback) => {
-                const suffix = `${Date.now()}-${(0, node_crypto_1.randomBytes)(6).toString('hex')}`;
-                callback(null, `${suffix}${(0, node_path_1.extname)(file.originalname)}`);
-            },
-        }),
+        storage: (0, multer_1.memoryStorage)(),
         fileFilter: (_request, file, callback) => {
             if (!allowedMimeTypes.includes(file.mimetype)) {
                 callback(new common_1.BadRequestException('Only jpg, png and webp images are allowed'), false);
