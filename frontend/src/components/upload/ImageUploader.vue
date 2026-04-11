@@ -62,6 +62,7 @@ type UploadedPreview = {
   status?: 'uploading' | 'done' | 'failed';
   message?: string;
   localUrl?: string;
+  dataUrl?: string;
   originalSize?: number;
   compressedSize?: number;
 };
@@ -137,7 +138,9 @@ async function handleAfterRead(
 
     try {
       const compressed = await compressImageFile(current.file);
+      const dataUrl = await readFileAsDataUrl(compressed.file);
       patchPreview(tempId, {
+        dataUrl,
         message: compressed.targetMet
           ? `已压缩 ${formatSize(compressed.compressedSize)}`
           : `压缩后 ${formatSize(compressed.compressedSize)}`,
@@ -151,6 +154,7 @@ async function handleAfterRead(
         name: current.file.name,
         status: 'done',
         localUrl: undefined,
+        dataUrl,
         message: compressed.targetMet
           ? `已上传 ${formatSize(compressed.compressedSize)}`
           : `已上传 ${formatSize(compressed.compressedSize)}，仍大于 100KB`,
@@ -237,5 +241,14 @@ function resolveStatusText(item: UploadedPreview) {
   }
 
   return '已上传';
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('读取图片失败'));
+    reader.readAsDataURL(file);
+  });
 }
 </script>

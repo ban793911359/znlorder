@@ -18,3 +18,7 @@ export const ORDER_STATUS_OPTIONS = [
 ];
 
 export const DRAFT_STORAGE_KEY = 'wechat-order-h5:draft-order';
+
+export function getDefaultPaymentImagesStorageKey(userId?: number | string) {
+  return `wechat-order-h5:default-payment-images:${userId || 'guest'}`;
+}

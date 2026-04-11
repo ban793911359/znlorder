@@ -1,1 +1,0 @@
-import{d as t,f as l,c as n,a,t as o,a6 as c,g as r}from"./index-3AdZbO8V.js";const i={class:"info-row"},_={class:"info-row__label"},d={class:"info-row__value"},m=t({__name:"InfoRow",props:{label:{},value:{}},setup(e){return(s,f)=>(l(),n("div",i,[a("div",_,o(e.label),1),a("div",d,[c(s.$slots,"default",{},()=>[r(o(e.value??"--"),1)])])]))}});export{m as _};

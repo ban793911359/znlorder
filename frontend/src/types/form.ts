@@ -14,6 +14,7 @@ export interface ProductFormItem {
     status?: 'uploading' | 'done' | 'failed';
     message?: string;
     localUrl?: string;
+    dataUrl?: string;
     originalSize?: number;
     compressedSize?: number;
   }>;

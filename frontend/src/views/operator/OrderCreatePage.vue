@@ -30,7 +30,12 @@
       v-model="form"
       v-model:customer-hint="customerHint"
       :submitting="submitting"
+      :show-default-payment-actions="true"
+      :has-default-payment-images="defaultPaymentImages.length > 0"
       submit-text="正式提交"
+      @save-default-payment-images="saveDefaultPaymentImages"
+      @apply-default-payment-images="applyDefaultPaymentImages"
+      @clear-default-payment-images="clearDefaultPaymentImages"
       @save-draft="saveDraft"
       @submit="submitOrder"
     />
@@ -41,6 +46,7 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showConfirmDialog, showFailToast, showSuccessToast } from 'vant';
+import { uploadImage } from '@/api/uploads';
 import {
   createOrder,
   deleteOrderDraft,
@@ -50,9 +56,10 @@ import {
 import EmptyState from '@/components/common/EmptyState.vue';
 import SectionCard from '@/components/common/SectionCard.vue';
 import OrderForm from '@/components/forms/OrderForm.vue';
-import { DRAFT_STORAGE_KEY } from '@/constants/order';
+import { DRAFT_STORAGE_KEY, getDefaultPaymentImagesStorageKey } from '@/constants/order';
+import { useAuthStore } from '@/stores/auth';
 import type { IdentifyCustomerResult, OrderDraft } from '@/types/order';
-import type { OrderFormModel } from '@/types/form';
+import type { OrderFormModel, UploadPreviewItem } from '@/types/form';
 import {
   buildClientShareText,
   buildCreatePayload,
@@ -63,13 +70,17 @@ import { formatDateTime } from '@/utils/format';
 import { loadJSON, removeStorage, saveJSON } from '@/utils/storage';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const submitting = ref(false);
 const draftLoading = ref(false);
 const customerHint = ref<IdentifyCustomerResult | null>(null);
 const drafts = ref<OrderDraft[]>([]);
 const currentDraftId = ref<number | null>(null);
+const defaultPaymentImages = ref<UploadPreviewItem[]>(loadDefaultPaymentImages());
 const form = ref<OrderFormModel>(
-  loadJSON<OrderFormModel>(DRAFT_STORAGE_KEY) || createEmptyFormModel(),
+  withDefaultPaymentImages(
+    loadJSON<OrderFormModel>(DRAFT_STORAGE_KEY) || createEmptyFormModel(),
+  ),
 );
 
 onMounted(() => {
@@ -107,7 +118,7 @@ async function saveDraft() {
 }
 
 function loadDraft(draft: OrderDraft) {
-  form.value = normalizeDraftPayload(draft.payload);
+  form.value = withDefaultPaymentImages(normalizeDraftPayload(draft.payload));
   currentDraftId.value = draft.id;
   customerHint.value = null;
   saveJSON(DRAFT_STORAGE_KEY, form.value);
@@ -146,6 +157,7 @@ async function submitOrder() {
 
   submitting.value = true;
   try {
+    await ensurePaymentImagesUploaded();
     const response = await createOrder(buildCreatePayload(form.value));
     if (currentDraftId.value) {
       await deleteOrderDraft(currentDraftId.value);
@@ -182,6 +194,45 @@ async function submitOrder() {
   } finally {
     submitting.value = false;
   }
+}
+
+function saveDefaultPaymentImages() {
+  const serializableImages = form.value.paymentImageList
+    .map((item) => ({
+      name: item.name,
+      url: item.dataUrl || (item.url.startsWith('data:') ? item.url : ''),
+      dataUrl: item.dataUrl || (item.url.startsWith('data:') ? item.url : ''),
+      status: 'done' as const,
+      message: '默认收款码',
+    }))
+    .filter((item) => item.dataUrl);
+
+  if (!serializableImages.length) {
+    showFailToast('请先上传收款码，再设置默认');
+    return;
+  }
+
+  defaultPaymentImages.value = serializableImages;
+  saveJSON(getDefaultPaymentImagesStorageKey(authStore.user?.id), serializableImages);
+  showSuccessToast('默认收款码已保存，下次新建订单会自动带出');
+}
+
+function applyDefaultPaymentImages() {
+  if (!defaultPaymentImages.value.length) {
+    showFailToast('当前没有默认收款码');
+    return;
+  }
+
+  form.value.paymentImageList = cloneUploadPreviewList(defaultPaymentImages.value);
+  form.value.paymentImageFileIds = [];
+  saveJSON(DRAFT_STORAGE_KEY, form.value);
+  showSuccessToast('已恢复默认收款码');
+}
+
+function clearDefaultPaymentImages() {
+  defaultPaymentImages.value = [];
+  removeStorage(getDefaultPaymentImagesStorageKey(authStore.user?.id));
+  showSuccessToast('默认收款码已清除');
 }
 
 async function copyText(text: string) {
@@ -235,6 +286,12 @@ function normalizeDraftPayload(payload: unknown): OrderFormModel {
   return {
     ...base,
     ...parsed,
+    paymentImageFileIds: Array.isArray(parsed.paymentImageFileIds)
+      ? parsed.paymentImageFileIds
+      : [],
+    paymentImageList: Array.isArray(parsed.paymentImageList)
+      ? parsed.paymentImageList
+      : [],
     items:
       Array.isArray(parsed.items) && parsed.items.length > 0
         ? parsed.items.map((item) => ({
@@ -247,6 +304,81 @@ function normalizeDraftPayload(payload: unknown): OrderFormModel {
           }))
         : base.items,
   };
+}
+
+function loadDefaultPaymentImages() {
+  return (
+    loadJSON<UploadPreviewItem[]>(
+      getDefaultPaymentImagesStorageKey(authStore.user?.id),
+    ) || []
+  ).map((item) => ({
+    ...item,
+    id: undefined,
+    tempId: undefined,
+    status: 'done' as const,
+    message: item.message || '默认收款码',
+  }));
+}
+
+function withDefaultPaymentImages(value: OrderFormModel) {
+  if (value.paymentImageList.length > 0 || defaultPaymentImages.value.length === 0) {
+    return value;
+  }
+
+  return {
+    ...value,
+    paymentImageFileIds: [],
+    paymentImageList: cloneUploadPreviewList(defaultPaymentImages.value),
+  };
+}
+
+function cloneUploadPreviewList(value: UploadPreviewItem[]) {
+  return value.map((item) => ({
+    ...item,
+    id: undefined,
+    tempId: undefined,
+    localUrl: undefined,
+    status: 'done' as const,
+    message: item.message || '默认收款码',
+  }));
+}
+
+async function ensurePaymentImagesUploaded() {
+  const nextList: UploadPreviewItem[] = [];
+
+  for (const item of form.value.paymentImageList) {
+    if (typeof item.id === 'number') {
+      nextList.push(item);
+      continue;
+    }
+
+    const dataUrl = item.dataUrl || (item.url.startsWith('data:') ? item.url : '');
+    if (!dataUrl) {
+      throw new Error('默认收款码缺少可上传数据，请重新上传后再提交');
+    }
+
+    const file = await dataUrlToFile(dataUrl, item.name || 'payment-code.jpg');
+    const response = await uploadImage(file, 'order_payment_code_image');
+    nextList.push({
+      ...item,
+      id: response.data.id,
+      url: response.data.fileUrl,
+      dataUrl,
+      status: 'done' as const,
+      message: '已作为默认收款码自动带出',
+    });
+  }
+
+  form.value.paymentImageList = nextList;
+  form.value.paymentImageFileIds = nextList
+    .map((item) => item.id)
+    .filter((item): item is number => typeof item === 'number');
+}
+
+async function dataUrlToFile(dataUrl: string, fileName: string) {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return new File([blob], fileName, { type: blob.type || 'image/jpeg' });
 }
 </script>
 

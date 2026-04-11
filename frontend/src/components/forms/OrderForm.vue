@@ -99,10 +99,42 @@
         <image-uploader
           v-model="paymentImageList"
           title="收款码"
-          tip="可上传一个或多个收款码，客户查看订单时会展示"
+          tip="可上传一个或多个收款码；新建订单可自动带出默认收款码"
           upload-text="上传收款码"
           biz-type="order_payment_code_image"
         />
+        <div v-if="showDefaultPaymentActions" class="payment-code-actions">
+          <van-button
+            size="small"
+            plain
+            type="primary"
+            :disabled="!paymentImageList.length"
+            @click="$emit('save-default-payment-images')"
+          >
+            设为默认收款码
+          </van-button>
+          <van-button
+            size="small"
+            plain
+            type="success"
+            :disabled="!hasDefaultPaymentImages"
+            @click="$emit('apply-default-payment-images')"
+          >
+            恢复默认收款码
+          </van-button>
+          <van-button
+            size="small"
+            plain
+            type="danger"
+            :disabled="!hasDefaultPaymentImages"
+            @click="$emit('clear-default-payment-images')"
+          >
+            清除默认
+          </van-button>
+        </div>
+        <div v-if="showDefaultPaymentActions" class="form-tip payment-code-tip">
+          默认收款码保存在当前账号的当前浏览器中，新建订单会自动带出，提交时自动关联到本单。
+        </div>
       </div>
     </section-card>
 
@@ -168,6 +200,8 @@ import { formatMoney } from '@/utils/format';
 const props = defineProps<{
   submitting?: boolean;
   submitText?: string;
+  showDefaultPaymentActions?: boolean;
+  hasDefaultPaymentImages?: boolean;
 }>();
 
 const form = defineModel<OrderFormModel>({
@@ -208,6 +242,9 @@ const latestAddressText = computed(() =>
 const emit = defineEmits<{
   submit: [];
   'save-draft': [];
+  'save-default-payment-images': [];
+  'apply-default-payment-images': [];
+  'clear-default-payment-images': [];
 }>();
 
 function addItem() {
@@ -263,3 +300,16 @@ function applyDiscountRate() {
   showSuccessToast(`已按 ${rate} 折计算优惠`);
 }
 </script>
+
+<style scoped>
+.payment-code-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.payment-code-tip {
+  margin-top: 8px;
+}
+</style>
