@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus, Prisma, UploadBizType } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { JwtUser } from '../../common/interfaces/jwt-user.interface';
 import {
   almostEqualMoney,
@@ -31,6 +31,11 @@ import {
   presentOrderLogs,
 } from './order-presenter';
 import { OrderNumberService } from './order-number.service';
+import {
+  ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE,
+  ORDER_PRODUCT_IMAGE_BIZ_TYPE,
+  type UploadImageBizType,
+} from '../uploads/upload-biz-types';
 
 type OrderDraftRow = {
   id: number | bigint;
@@ -201,12 +206,12 @@ export class OrdersService {
     await this.ensureUploadFilesAvailable(
       itemImageFileIds,
       undefined,
-      UploadBizType.order_product_image,
+      ORDER_PRODUCT_IMAGE_BIZ_TYPE,
     );
     await this.ensureUploadFilesAvailable(
       paymentImageFileIds,
       undefined,
-      UploadBizType.order_payment_code_image,
+      ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE,
     );
 
     let lastError: unknown;
@@ -458,7 +463,7 @@ export class OrdersService {
       await this.ensureUploadFilesAvailable(
         this.collectItemImageFileIds(updateOrderDto.items),
         id,
-        UploadBizType.order_product_image,
+        ORDER_PRODUCT_IMAGE_BIZ_TYPE,
       );
     }
 
@@ -466,7 +471,7 @@ export class OrdersService {
       await this.ensureUploadFilesAvailable(
         updateOrderDto.paymentImageFileIds,
         id,
-        UploadBizType.order_payment_code_image,
+        ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE,
       );
     }
 
@@ -525,7 +530,7 @@ export class OrdersService {
         await tx.uploadFile.updateMany({
           where: {
             orderId: id,
-            bizType: UploadBizType.order_product_image,
+            bizType: ORDER_PRODUCT_IMAGE_BIZ_TYPE,
           },
           data: {
             orderId: null,
@@ -566,7 +571,7 @@ export class OrdersService {
         await tx.uploadFile.updateMany({
           where: {
             orderId: id,
-            bizType: UploadBizType.order_payment_code_image,
+            bizType: ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE,
           },
           data: {
             orderId: null,
@@ -1239,7 +1244,7 @@ export class OrdersService {
   private async ensureUploadFilesAvailable(
     imageFileIds: number[],
     currentOrderId?: number,
-    bizType: UploadBizType = UploadBizType.order_product_image,
+    bizType: UploadImageBizType = ORDER_PRODUCT_IMAGE_BIZ_TYPE,
   ) {
     if (imageFileIds.length === 0) {
       return;

@@ -8,7 +8,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UploadBizType, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -51,7 +51,7 @@ export class UploadsController {
   )
   async uploadImage(
     @UploadedFile() file: Express.Multer.File | undefined,
-    @Query('bizType') bizType: UploadBizType | undefined,
+    @Query('bizType') bizType: string | undefined,
     @CurrentUser() currentUser: JwtUser,
   ) {
     const maxUploadSizeMb = Number(

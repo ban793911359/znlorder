@@ -20,6 +20,7 @@ const public_token_util_1 = require("../../common/utils/public-token.util");
 const prisma_service_1 = require("../../database/prisma/prisma.service");
 const order_presenter_1 = require("./order-presenter");
 const order_number_service_1 = require("./order-number.service");
+const upload_biz_types_1 = require("../uploads/upload-biz-types");
 let OrdersService = OrdersService_1 = class OrdersService {
     constructor(prisma, orderNumberService, configService) {
         this.prisma = prisma;
@@ -143,8 +144,8 @@ let OrdersService = OrdersService_1 = class OrdersService {
         this.validateAmounts(createOrderDto.items, createOrderDto.totalAmount, createOrderDto.shippingFee ?? 0, createOrderDto.discountAmount ?? 0, createOrderDto.payableAmount);
         const itemImageFileIds = this.collectItemImageFileIds(createOrderDto.items);
         const paymentImageFileIds = createOrderDto.paymentImageFileIds ?? [];
-        await this.ensureUploadFilesAvailable(itemImageFileIds, undefined, client_1.UploadBizType.order_product_image);
-        await this.ensureUploadFilesAvailable(paymentImageFileIds, undefined, client_1.UploadBizType.order_payment_code_image);
+        await this.ensureUploadFilesAvailable(itemImageFileIds, undefined, upload_biz_types_1.ORDER_PRODUCT_IMAGE_BIZ_TYPE);
+        await this.ensureUploadFilesAvailable(paymentImageFileIds, undefined, upload_biz_types_1.ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE);
         let lastError;
         let result;
         for (let attempt = 1; attempt <= OrdersService_1.ORDER_NO_RETRY_TIMES; attempt += 1) {
@@ -328,10 +329,10 @@ let OrdersService = OrdersService_1 = class OrdersService {
             (0, decimal_util_1.toCurrencyNumber)(existingOrder.payableAmount);
         this.validateAmounts(mergedItems, mergedTotalAmount, mergedShippingFee, mergedDiscountAmount, mergedPayableAmount);
         if (updateOrderDto.items !== undefined) {
-            await this.ensureUploadFilesAvailable(this.collectItemImageFileIds(updateOrderDto.items), id, client_1.UploadBizType.order_product_image);
+            await this.ensureUploadFilesAvailable(this.collectItemImageFileIds(updateOrderDto.items), id, upload_biz_types_1.ORDER_PRODUCT_IMAGE_BIZ_TYPE);
         }
         if (updateOrderDto.paymentImageFileIds !== undefined) {
-            await this.ensureUploadFilesAvailable(updateOrderDto.paymentImageFileIds, id, client_1.UploadBizType.order_payment_code_image);
+            await this.ensureUploadFilesAvailable(updateOrderDto.paymentImageFileIds, id, upload_biz_types_1.ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE);
         }
         const updatedOrder = await this.prisma.$transaction(async (tx) => {
             const customer = await tx.customer.upsert({
@@ -383,7 +384,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 await tx.uploadFile.updateMany({
                     where: {
                         orderId: id,
-                        bizType: client_1.UploadBizType.order_product_image,
+                        bizType: upload_biz_types_1.ORDER_PRODUCT_IMAGE_BIZ_TYPE,
                     },
                     data: {
                         orderId: null,
@@ -420,7 +421,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 await tx.uploadFile.updateMany({
                     where: {
                         orderId: id,
-                        bizType: client_1.UploadBizType.order_payment_code_image,
+                        bizType: upload_biz_types_1.ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE,
                     },
                     data: {
                         orderId: null,
@@ -994,7 +995,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
     collectItemImageFileIds(items) {
         return items.flatMap((item) => item.imageFileIds ?? []);
     }
-    async ensureUploadFilesAvailable(imageFileIds, currentOrderId, bizType = client_1.UploadBizType.order_product_image) {
+    async ensureUploadFilesAvailable(imageFileIds, currentOrderId, bizType = upload_biz_types_1.ORDER_PRODUCT_IMAGE_BIZ_TYPE) {
         if (imageFileIds.length === 0) {
             return;
         }

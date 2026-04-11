@@ -5,13 +5,30 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UploadBizType } from '@prisma/client';
 import { extname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../../database/prisma/prisma.service';
 import { JwtUser } from '../../common/interfaces/jwt-user.interface';
 import { LocalOrderImageStorage } from './storage/local.storage';
 import { R2OrderImageStorage } from './storage/r2.storage';
+import {
+  isUploadImageBizType,
+  ORDER_PRODUCT_IMAGE_BIZ_TYPE,
+  type UploadImageBizType,
+} from './upload-biz-types';
+
+type UploadFileRow = {
+  id: number | bigint;
+  biz_type: string;
+  storage_driver: string;
+  storage_key: string | null;
+  original_name: string;
+  file_name: string;
+  mime_type: string;
+  file_size: number | bigint;
+  file_url: string;
+  expires_at: Date;
+};
 
 @Injectable()
 export class UploadsService {
@@ -27,13 +44,9 @@ export class UploadsService {
   async createImageRecord(
     file: Express.Multer.File,
     currentUser: JwtUser,
-    bizType: UploadBizType = UploadBizType.order_product_image,
+    bizType?: string,
   ) {
-    if (!Object.values(UploadBizType).includes(bizType)) {
-      throw new BadRequestException(
-        `Unsupported upload biz type: ${bizType}`,
-      );
-    }
+    const normalizedBizType = this.normalizeBizType(bizType);
 
     const storageDriver = this.configService.get<string>(
       'UPLOAD_STORAGE_DRIVER',
@@ -56,38 +69,74 @@ export class UploadsService {
       Date.now() + retentionDays * 24 * 60 * 60 * 1000,
     );
 
-    const upload = await this.prisma.uploadFile.create({
-      data: {
-        uploaderId: currentUser.id,
-        bizType,
-        storageDriver: storedFile.storageDriver,
-        storageKey: storedFile.storageKey,
-        originalName: file.originalname,
-        fileName: storedFile.fileName,
-        mimeType: file.mimetype,
-        fileSize: file.size,
-        fileUrl: storedFile.fileUrl,
-        expiresAt,
-      },
+    const upload = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        INSERT INTO upload_files (
+          uploader_id,
+          biz_type,
+          storage_driver,
+          storage_key,
+          original_name,
+          file_name,
+          mime_type,
+          file_size,
+          file_url,
+          expires_at,
+          created_at
+        )
+        VALUES (
+          ${currentUser.id},
+          ${normalizedBizType},
+          ${storedFile.storageDriver},
+          ${storedFile.storageKey},
+          ${file.originalname},
+          ${storedFile.fileName},
+          ${file.mimetype},
+          ${file.size},
+          ${storedFile.fileUrl},
+          ${expiresAt},
+          CURRENT_TIMESTAMP(3)
+        )
+      `;
+
+      const uploads = await tx.$queryRaw<UploadFileRow[]>`
+        SELECT
+          id,
+          biz_type,
+          storage_driver,
+          storage_key,
+          original_name,
+          file_name,
+          mime_type,
+          file_size,
+          file_url,
+          expires_at
+        FROM upload_files
+        WHERE id = LAST_INSERT_ID()
+        LIMIT 1
+      `;
+
+      return uploads[0];
     });
 
     return {
       success: true,
       data: {
-        id: upload.id,
-        fileName: upload.fileName,
-        originalName: upload.originalName,
-        mimeType: upload.mimeType,
-        fileSize: upload.fileSize,
-        debugVersion: 'upload-debug-v3',
-        storageDriver: upload.storageDriver,
-        storageKey: upload.storageKey,
+        id: Number(upload.id),
+        fileName: upload.file_name,
+        originalName: upload.original_name,
+        mimeType: upload.mime_type,
+        fileSize: Number(upload.file_size),
+        debugVersion: 'upload-debug-v4',
+        bizType: upload.biz_type,
+        storageDriver: upload.storage_driver,
+        storageKey: upload.storage_key,
         fileUrl: this.resolvePublicFileUrl({
-          storageDriver: upload.storageDriver,
-          storageKey: upload.storageKey,
-          fileUrl: upload.fileUrl,
+          storageDriver: upload.storage_driver,
+          storageKey: upload.storage_key,
+          fileUrl: upload.file_url,
         }),
-        expiresAt: upload.expiresAt,
+        expiresAt: upload.expires_at,
         available: true,
       },
     };
@@ -114,6 +163,18 @@ export class UploadsService {
   private buildStoredFileName(originalName: string) {
     const suffix = `${Date.now()}-${randomBytes(6).toString('hex')}`;
     return `${suffix}${extname(originalName)}`;
+  }
+
+  private normalizeBizType(bizType?: string): UploadImageBizType {
+    if (!bizType) {
+      return ORDER_PRODUCT_IMAGE_BIZ_TYPE;
+    }
+
+    if (isUploadImageBizType(bizType)) {
+      return bizType;
+    }
+
+    throw new BadRequestException(`Unsupported upload biz type: ${bizType}`);
   }
 
   private resolvePublicFileUrl(input: {
