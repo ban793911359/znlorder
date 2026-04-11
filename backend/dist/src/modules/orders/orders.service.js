@@ -389,16 +389,18 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 },
             });
             if (updateOrderDto.items) {
-                await tx.uploadFile.updateMany({
-                    where: {
-                        orderId: id,
-                        bizType: upload_biz_types_1.ORDER_PRODUCT_IMAGE_BIZ_TYPE,
-                    },
-                    data: {
-                        orderId: null,
-                        orderItemId: null,
-                    },
-                });
+                const existingProductImageIds = existingOrder.items.flatMap((item) => item.images.map((image) => image.id));
+                if (existingProductImageIds.length > 0) {
+                    await tx.uploadFile.updateMany({
+                        where: {
+                            id: { in: existingProductImageIds },
+                        },
+                        data: {
+                            orderId: null,
+                            orderItemId: null,
+                        },
+                    });
+                }
                 await tx.orderItem.deleteMany({ where: { orderId: id } });
                 for (const item of updateOrderDto.items) {
                     const createdItem = await tx.orderItem.create({
@@ -425,17 +427,21 @@ let OrdersService = OrdersService_1 = class OrdersService {
                     }
                 }
             }
-            if (updateOrderDto.paymentImageFileIds) {
-                await tx.uploadFile.updateMany({
-                    where: {
-                        orderId: id,
-                        bizType: upload_biz_types_1.ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE,
-                    },
-                    data: {
-                        orderId: null,
-                        orderItemId: null,
-                    },
-                });
+            if (updateOrderDto.paymentImageFileIds !== undefined) {
+                const existingPaymentImageIds = existingOrder.images
+                    .filter((image) => image.bizType === upload_biz_types_1.ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE)
+                    .map((image) => image.id);
+                if (existingPaymentImageIds.length > 0) {
+                    await tx.uploadFile.updateMany({
+                        where: {
+                            id: { in: existingPaymentImageIds },
+                        },
+                        data: {
+                            orderId: null,
+                            orderItemId: null,
+                        },
+                    });
+                }
                 if (updateOrderDto.paymentImageFileIds.length > 0) {
                     await tx.uploadFile.updateMany({
                         where: {
@@ -1014,11 +1020,14 @@ let OrdersService = OrdersService_1 = class OrdersService {
         const files = await this.prisma.uploadFile.findMany({
             where: {
                 id: { in: uniqueIds },
-                bizType,
             },
         });
         if (files.length !== uniqueIds.length) {
             throw new common_1.BadRequestException('Some uploaded images do not exist');
+        }
+        const invalidBizTypeFile = files.find((file) => file.bizType !== bizType);
+        if (invalidBizTypeFile) {
+            throw new common_1.BadRequestException('Some uploaded images do not match the expected type');
         }
         const occupiedFile = files.find((file) => {
             if (file.orderId === null) {
