@@ -1140,7 +1140,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
     }
 };
 exports.OrdersService = OrdersService;
-OrdersService.ORDER_NO_RETRY_TIMES = 3;
+OrdersService.ORDER_NO_RETRY_TIMES = 8;
 exports.OrdersService = OrdersService = OrdersService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,

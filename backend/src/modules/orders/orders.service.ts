@@ -48,7 +48,7 @@ type OrderDraftRow = {
 
 @Injectable()
 export class OrdersService {
-  private static readonly ORDER_NO_RETRY_TIMES = 3;
+  private static readonly ORDER_NO_RETRY_TIMES = 8;
   private readonly logger = new Logger(OrdersService.name);
 
   constructor(

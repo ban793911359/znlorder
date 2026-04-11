@@ -16,46 +16,80 @@ export class OrderNumberService {
     const bizDate = now.format('YYYY-MM-DD');
     const bizDateCode = now.format('YYYYMMDD');
 
-    const maxOrderRows = await tx.$queryRawUnsafe<
-      Array<{ max_value: number | null }>
-    >(
+    const lockedRows = await tx.$queryRawUnsafe<Array<{ current_value: number }>>(
       `
-      SELECT MAX(CAST(SUBSTRING(order_no, 11) AS UNSIGNED)) AS max_value
-      FROM orders
-      WHERE order_no LIKE ?
-      `,
-      `ZN${bizDateCode}%`,
-    );
-
-    const existingMaxValue = maxOrderRows[0]?.max_value ?? 0;
-
-    await tx.$executeRawUnsafe(
-      `
-      INSERT INTO order_sequences (biz_date, current_value, updated_at)
-      VALUES (?, ?, NOW(3))
-      ON DUPLICATE KEY UPDATE
-        current_value = GREATEST(current_value, VALUES(current_value)),
-        updated_at = NOW(3)
-      `,
-      bizDate,
-      existingMaxValue,
-    );
-
-    await tx.$executeRawUnsafe(
-      `
-      UPDATE order_sequences
-      SET current_value = LAST_INSERT_ID(GREATEST(current_value, ?) + 1),
-          updated_at = NOW(3)
+      SELECT current_value
+      FROM order_sequences
       WHERE biz_date = ?
+      FOR UPDATE
       `,
-      existingMaxValue,
       bizDate,
     );
 
-    const rows = await tx.$queryRawUnsafe<Array<{ current_value: number }>>(
-      `SELECT LAST_INSERT_ID() AS current_value`,
-    );
-    const nextValue = Number(rows[0]?.current_value);
+    let nextValue: number;
+
+    if (lockedRows.length > 0) {
+      nextValue = Number(lockedRows[0]?.current_value ?? 0) + 1;
+
+      await tx.$executeRawUnsafe(
+        `
+        UPDATE order_sequences
+        SET current_value = ?, updated_at = NOW(3)
+        WHERE biz_date = ?
+        `,
+        nextValue,
+        bizDate,
+      );
+    } else {
+      const maxOrderRows = await tx.$queryRawUnsafe<
+        Array<{ max_value: number | null }>
+      >(
+        `
+        SELECT MAX(CAST(SUBSTRING(order_no, 11) AS UNSIGNED)) AS max_value
+        FROM orders
+        WHERE order_no LIKE ?
+        `,
+        `ZN${bizDateCode}%`,
+      );
+
+      const existingMaxValue = Number(maxOrderRows[0]?.max_value ?? 0);
+      nextValue = existingMaxValue + 1;
+
+      try {
+        await tx.$executeRawUnsafe(
+          `
+          INSERT INTO order_sequences (biz_date, current_value, updated_at)
+          VALUES (?, ?, NOW(3))
+          `,
+          bizDate,
+          nextValue,
+        );
+      } catch {
+        const fallbackRows = await tx.$queryRawUnsafe<
+          Array<{ current_value: number }>
+        >(
+          `
+          SELECT current_value
+          FROM order_sequences
+          WHERE biz_date = ?
+          FOR UPDATE
+          `,
+          bizDate,
+        );
+
+        nextValue = Number(fallbackRows[0]?.current_value ?? 0) + 1;
+
+        await tx.$executeRawUnsafe(
+          `
+          UPDATE order_sequences
+          SET current_value = ?, updated_at = NOW(3)
+          WHERE biz_date = ?
+          `,
+          nextValue,
+          bizDate,
+        );
+      }
+    }
 
     if (!Number.isInteger(nextValue) || nextValue < 1) {
       throw new Error('Failed to generate order sequence');
