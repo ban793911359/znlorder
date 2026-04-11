@@ -5,6 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { extname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../../database/prisma/prisma.service';
@@ -29,6 +30,14 @@ type UploadFileRow = {
   file_size: number | bigint;
   file_url: string;
   expires_at: Date;
+};
+
+type UploadFileDeleteRow = {
+  id: number;
+  storage_driver: string;
+  storage_key: string | null;
+  file_url: string;
+  file_name: string;
 };
 
 @Injectable()
@@ -157,44 +166,52 @@ export class UploadsService {
     }
 
     const uniqueIds = [...new Set(fileIds)];
-    const files = await this.prisma.uploadFile.findMany({
-      where: {
-        id: { in: uniqueIds },
-        deletedAt: null,
-      },
-    });
+    const files = await this.prisma.$queryRaw<UploadFileDeleteRow[]>(
+      Prisma.sql`
+        SELECT id, storage_driver, storage_key, file_url, file_name
+        FROM upload_files
+        WHERE id IN (${Prisma.join(uniqueIds)})
+          AND deleted_at IS NULL
+      `,
+    );
 
     const deletedAt = new Date();
 
     for (const file of files) {
-      const storageKey = this.resolveStorageKeyForDeletion(file);
+      const storageKey = this.resolveStorageKeyForDeletion({
+        storageKey: file.storage_key,
+        fileUrl: file.file_url,
+        fileName: file.file_name,
+        storageDriver: file.storage_driver,
+      });
 
       if (!storageKey) {
         this.logger.warn(
-          `skip deleting file without storage key: id=${file.id} fileUrl=${file.fileUrl}`,
+          `skip deleting file without storage key: id=${file.id} fileUrl=${file.file_url}`,
         );
         continue;
       }
 
       try {
-        await this.resolveStorage(file.storageDriver).deleteObject(storageKey);
+        await this.resolveStorage(file.storage_driver).deleteObject(storageKey);
       } catch (error) {
         this.logger.error(
-          `failed to delete stored file: id=${file.id} driver=${file.storageDriver} key=${storageKey}`,
+          `failed to delete stored file: id=${file.id} driver=${file.storage_driver} key=${storageKey}`,
           error instanceof Error ? error.stack : undefined,
         );
         throw new InternalServerErrorException('Failed to delete uploaded file');
       }
     }
 
-    await this.prisma.uploadFile.updateMany({
-      where: {
-        id: { in: files.map((file) => file.id) },
-      },
-      data: {
-        deletedAt,
-      },
-    });
+    if (files.length > 0) {
+      await this.prisma.$executeRaw(
+        Prisma.sql`
+          UPDATE upload_files
+          SET deleted_at = ${deletedAt}
+          WHERE id IN (${Prisma.join(files.map((file) => file.id))})
+        `,
+      );
+    }
   }
 
   private resolveStorage(storageDriver: string) {

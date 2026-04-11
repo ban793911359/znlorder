@@ -3,9 +3,18 @@ import { unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { PrismaClient, UploadBizType } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { ORDER_PRODUCT_IMAGE_BIZ_TYPE } from '../modules/uploads/upload-biz-types';
 
 const prisma = new PrismaClient();
+
+type ExpiredUploadFileRow = {
+  id: number;
+  storage_driver: string;
+  storage_key: string | null;
+  file_url: string;
+  file_name: string;
+};
 
 function createR2Client() {
   const accountId = (process.env.R2_ACCOUNT_ID || '').trim();
@@ -32,15 +41,15 @@ async function main() {
   const r2Client = createR2Client();
   const now = new Date();
 
-  const expiredFiles = await prisma.uploadFile.findMany({
-    where: {
-      bizType: UploadBizType.order_product_image,
-      deletedAt: null,
-      expiresAt: {
-        lte: now,
-      },
-    },
-  });
+  const expiredFiles = await prisma.$queryRaw<ExpiredUploadFileRow[]>(
+    Prisma.sql`
+      SELECT id, storage_driver, storage_key, file_url, file_name
+      FROM upload_files
+      WHERE biz_type = ${ORDER_PRODUCT_IMAGE_BIZ_TYPE}
+        AND deleted_at IS NULL
+        AND expires_at <= ${now}
+    `,
+  );
 
   let deletedCount = 0;
   let skippedCount = 0;
@@ -48,12 +57,12 @@ async function main() {
   for (const file of expiredFiles) {
     let shouldMarkDeleted = false;
 
-    if (file.storageDriver === 'local') {
+    if (file.storage_driver === 'local') {
       const relativePath =
-        file.storageKey ||
-        (file.fileUrl.startsWith('/uploads/')
-          ? file.fileUrl.replace('/uploads/', '')
-          : file.fileName);
+        file.storage_key ||
+        (file.file_url.startsWith('/uploads/')
+          ? file.file_url.replace('/uploads/', '')
+          : file.file_name);
       const absolutePath = join(process.cwd(), uploadDir, relativePath);
 
       if (existsSync(absolutePath)) {
@@ -64,11 +73,16 @@ async function main() {
         skippedCount += 1;
         shouldMarkDeleted = true;
       }
-    } else if (file.storageDriver === 'r2' && r2Client && r2Bucket && file.storageKey) {
+    } else if (
+      file.storage_driver === 'r2' &&
+      r2Client &&
+      r2Bucket &&
+      file.storage_key
+    ) {
       await r2Client.send(
         new DeleteObjectCommand({
           Bucket: r2Bucket,
-          Key: file.storageKey,
+          Key: file.storage_key,
         }),
       );
       deletedCount += 1;
@@ -78,12 +92,13 @@ async function main() {
     }
 
     if (shouldMarkDeleted) {
-      await prisma.uploadFile.update({
-        where: { id: file.id },
-        data: {
-          deletedAt: now,
-        },
-      });
+      await prisma.$executeRaw(
+        Prisma.sql`
+          UPDATE upload_files
+          SET deleted_at = ${now}
+          WHERE id = ${file.id}
+        `,
+      );
     }
   }
 

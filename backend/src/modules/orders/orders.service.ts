@@ -46,6 +46,13 @@ type OrderDraftRow = {
   updated_at: Date;
 };
 
+type UploadFileAvailabilityRow = {
+  id: number;
+  order_id: number | null;
+  biz_type: string;
+  deleted_at: Date | null;
+};
+
 @Injectable()
 export class OrdersService {
   private static readonly ORDER_NO_RETRY_TIMES = 8;
@@ -303,27 +310,17 @@ export class OrdersService {
             });
 
             if ((item.imageFileIds ?? []).length > 0) {
-              await tx.uploadFile.updateMany({
-                where: {
-                  id: { in: item.imageFileIds },
-                },
-                data: {
-                  orderId: order.id,
-                  orderItemId: createdItem.id,
-                },
+              await this.bindUploadFilesToOrder(tx, item.imageFileIds ?? [], {
+                orderId: order.id,
+                orderItemId: createdItem.id,
               });
             }
           }
 
           if (paymentImageFileIds.length > 0) {
-            await tx.uploadFile.updateMany({
-              where: {
-                id: { in: paymentImageFileIds },
-              },
-              data: {
-                orderId: order.id,
-                orderItemId: null,
-              },
+            await this.bindUploadFilesToOrder(tx, paymentImageFileIds, {
+              orderId: order.id,
+              orderItemId: null,
             });
           }
 
@@ -543,14 +540,9 @@ export class OrdersService {
           item.images.map((image) => image.id),
         );
         if (existingProductImageIds.length > 0) {
-          await tx.uploadFile.updateMany({
-            where: {
-              id: { in: existingProductImageIds },
-            },
-            data: {
-              orderId: null,
-              orderItemId: null,
-            },
+          await this.bindUploadFilesToOrder(tx, existingProductImageIds, {
+            orderId: null,
+            orderItemId: null,
           });
         }
 
@@ -570,14 +562,9 @@ export class OrdersService {
           });
 
           if ((item.imageFileIds ?? []).length > 0) {
-            await tx.uploadFile.updateMany({
-              where: {
-                id: { in: item.imageFileIds },
-              },
-              data: {
-                orderId: id,
-                orderItemId: createdItem.id,
-              },
+            await this.bindUploadFilesToOrder(tx, item.imageFileIds ?? [], {
+              orderId: id,
+              orderItemId: createdItem.id,
             });
           }
         }
@@ -590,26 +577,16 @@ export class OrdersService {
           )
           .map((image) => image.id);
         if (existingPaymentImageIds.length > 0) {
-          await tx.uploadFile.updateMany({
-            where: {
-              id: { in: existingPaymentImageIds },
-            },
-            data: {
-              orderId: null,
-              orderItemId: null,
-            },
+          await this.bindUploadFilesToOrder(tx, existingPaymentImageIds, {
+            orderId: null,
+            orderItemId: null,
           });
         }
 
         if (updateOrderDto.paymentImageFileIds.length > 0) {
-          await tx.uploadFile.updateMany({
-            where: {
-              id: { in: updateOrderDto.paymentImageFileIds },
-            },
-            data: {
-              orderId: id,
-              orderItemId: null,
-            },
+          await this.bindUploadFilesToOrder(tx, updateOrderDto.paymentImageFileIds, {
+            orderId: id,
+            orderItemId: null,
           });
         }
       }
@@ -1277,17 +1254,24 @@ export class OrdersService {
     }
 
     const uniqueIds = [...new Set(imageFileIds)];
-    const files = await this.prisma.uploadFile.findMany({
-      where: {
-        id: { in: uniqueIds },
-      },
-    });
+    const files = await this.prisma.$queryRaw<UploadFileAvailabilityRow[]>(
+      Prisma.sql`
+        SELECT id, order_id, biz_type, deleted_at
+        FROM upload_files
+        WHERE id IN (${Prisma.join(uniqueIds)})
+      `,
+    );
 
     if (files.length !== uniqueIds.length) {
       throw new BadRequestException('Some uploaded images do not exist');
     }
 
-    const invalidBizTypeFile = files.find((file) => file.bizType !== bizType);
+    const deletedFile = files.find((file) => file.deleted_at !== null);
+    if (deletedFile) {
+      throw new BadRequestException('Some uploaded images are no longer available');
+    }
+
+    const invalidBizTypeFile = files.find((file) => file.biz_type !== bizType);
     if (invalidBizTypeFile) {
       throw new BadRequestException(
         'Some uploaded images do not match the expected type',
@@ -1295,11 +1279,11 @@ export class OrdersService {
     }
 
     const occupiedFile = files.find((file) => {
-      if (file.orderId === null) {
+      if (file.order_id === null) {
         return false;
       }
 
-      return file.orderId !== currentOrderId;
+      return file.order_id !== currentOrderId;
     });
 
     if (occupiedFile) {
@@ -1307,6 +1291,31 @@ export class OrdersService {
         'Some uploaded images already belong to another order',
       );
     }
+  }
+
+  private async bindUploadFilesToOrder(
+    tx: Prisma.TransactionClient,
+    fileIds: number[],
+    target: {
+      orderId: number | null;
+      orderItemId: number | null;
+    },
+  ) {
+    if (fileIds.length === 0) {
+      return;
+    }
+
+    const uniqueIds = [...new Set(fileIds)];
+
+    await tx.$executeRaw(
+      Prisma.sql`
+        UPDATE upload_files
+        SET
+          order_id = ${target.orderId},
+          order_item_id = ${target.orderItemId}
+        WHERE id IN (${Prisma.join(uniqueIds)})
+      `,
+    );
   }
 
   private extractWarehouseRemark(operatorRemark?: string | null) {
