@@ -21,11 +21,13 @@ const prisma_service_1 = require("../../database/prisma/prisma.service");
 const order_presenter_1 = require("./order-presenter");
 const order_number_service_1 = require("./order-number.service");
 const upload_biz_types_1 = require("../uploads/upload-biz-types");
+const uploads_service_1 = require("../uploads/uploads.service");
 let OrdersService = OrdersService_1 = class OrdersService {
-    constructor(prisma, orderNumberService, configService) {
+    constructor(prisma, orderNumberService, configService, uploadsService) {
         this.prisma = prisma;
         this.orderNumberService = orderNumberService;
         this.configService = configService;
+        this.uploadsService = uploadsService;
         this.logger = new common_1.Logger(OrdersService_1.name);
     }
     async listOrderDrafts(currentUser) {
@@ -309,6 +311,12 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 remark: item.remark ?? undefined,
                 imageFileIds: item.images.map((image) => image.id),
             }));
+        const removedPaymentImageIds = updateOrderDto.paymentImageFileIds === undefined
+            ? []
+            : existingOrder.images
+                .filter((image) => image.bizType === upload_biz_types_1.ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE &&
+                !updateOrderDto.paymentImageFileIds?.includes(image.id))
+                .map((image) => image.id);
         this.validateProductModelNos(mergedItems);
         const receiverInfo = this.normalizeReceiverInfo({
             customerName: updateOrderDto.customerName ?? existingOrder.customer.name,
@@ -474,6 +482,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 },
             });
         });
+        if (removedPaymentImageIds.length > 0) {
+            await this.uploadsService.deleteFilesByIds(removedPaymentImageIds);
+        }
         return {
             success: true,
             data: {
@@ -1134,5 +1145,6 @@ exports.OrdersService = OrdersService = OrdersService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         order_number_service_1.OrderNumberService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        uploads_service_1.UploadsService])
 ], OrdersService);

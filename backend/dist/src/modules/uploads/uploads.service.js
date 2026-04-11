@@ -39,7 +39,9 @@ let UploadsService = UploadsService_1 = class UploadsService {
             mimeType: file.mimetype,
         });
         this.logger.log(`stored image via ${storedFile.storageDriver}: key=${storedFile.storageKey} url=${storedFile.fileUrl}`);
-        const expiresAt = new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000);
+        const expiresAt = normalizedBizType === upload_biz_types_1.ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE
+            ? UploadsService_1.PAYMENT_IMAGE_EXPIRES_AT
+            : new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000);
         const upload = await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw `
         INSERT INTO upload_files (
@@ -112,6 +114,41 @@ let UploadsService = UploadsService_1 = class UploadsService {
     getStorageForDriver(storageDriver) {
         return this.resolveStorage(storageDriver);
     }
+    async deleteFilesByIds(fileIds) {
+        if (fileIds.length === 0) {
+            return;
+        }
+        const uniqueIds = [...new Set(fileIds)];
+        const files = await this.prisma.uploadFile.findMany({
+            where: {
+                id: { in: uniqueIds },
+                deletedAt: null,
+            },
+        });
+        const deletedAt = new Date();
+        for (const file of files) {
+            const storageKey = this.resolveStorageKeyForDeletion(file);
+            if (!storageKey) {
+                this.logger.warn(`skip deleting file without storage key: id=${file.id} fileUrl=${file.fileUrl}`);
+                continue;
+            }
+            try {
+                await this.resolveStorage(file.storageDriver).deleteObject(storageKey);
+            }
+            catch (error) {
+                this.logger.error(`failed to delete stored file: id=${file.id} driver=${file.storageDriver} key=${storageKey}`, error instanceof Error ? error.stack : undefined);
+                throw new common_1.InternalServerErrorException('Failed to delete uploaded file');
+            }
+        }
+        await this.prisma.uploadFile.updateMany({
+            where: {
+                id: { in: files.map((file) => file.id) },
+            },
+            data: {
+                deletedAt,
+            },
+        });
+    }
     resolveStorage(storageDriver) {
         if (storageDriver === 'r2') {
             return this.r2OrderImageStorage;
@@ -133,6 +170,15 @@ let UploadsService = UploadsService_1 = class UploadsService {
             return bizType;
         }
         throw new common_1.BadRequestException(`Unsupported upload biz type: ${bizType}`);
+    }
+    resolveStorageKeyForDeletion(file) {
+        if (file.storageKey) {
+            return file.storageKey;
+        }
+        if (file.storageDriver === 'local' && file.fileUrl.startsWith('/uploads/')) {
+            return file.fileUrl.replace('/uploads/', '');
+        }
+        return null;
     }
     resolvePublicFileUrl(input) {
         if (input.storageDriver === 'r2' && input.storageKey) {
@@ -157,6 +203,7 @@ let UploadsService = UploadsService_1 = class UploadsService {
     }
 };
 exports.UploadsService = UploadsService;
+UploadsService.PAYMENT_IMAGE_EXPIRES_AT = new Date('2099-12-31T23:59:59.999Z');
 exports.UploadsService = UploadsService = UploadsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,

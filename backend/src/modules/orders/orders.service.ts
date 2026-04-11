@@ -36,6 +36,7 @@ import {
   ORDER_PRODUCT_IMAGE_BIZ_TYPE,
   type UploadImageBizType,
 } from '../uploads/upload-biz-types';
+import { UploadsService } from '../uploads/uploads.service';
 
 type OrderDraftRow = {
   id: number | bigint;
@@ -54,6 +55,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly orderNumberService: OrderNumberService,
     private readonly configService: ConfigService,
+    private readonly uploadsService: UploadsService,
   ) {}
 
   async listOrderDrafts(currentUser: JwtUser) {
@@ -419,6 +421,16 @@ export class OrdersService {
         remark: item.remark ?? undefined,
         imageFileIds: item.images.map((image) => image.id),
       }));
+    const removedPaymentImageIds =
+      updateOrderDto.paymentImageFileIds === undefined
+        ? []
+        : existingOrder.images
+            .filter(
+              (image) =>
+                image.bizType === ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE &&
+                !updateOrderDto.paymentImageFileIds?.includes(image.id),
+            )
+            .map((image) => image.id);
 
     this.validateProductModelNos(mergedItems);
 
@@ -627,6 +639,10 @@ export class OrdersService {
         },
       });
     });
+
+    if (removedPaymentImageIds.length > 0) {
+      await this.uploadsService.deleteFilesByIds(removedPaymentImageIds);
+    }
 
     return {
       success: true,
