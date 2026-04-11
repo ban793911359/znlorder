@@ -106,7 +106,7 @@ async function saveDraft() {
     const response = await saveOrderDraft({
       id: currentDraftId.value ?? undefined,
       title: buildDraftTitle(form.value),
-      payload: cloneForm(form.value),
+      payload: buildCloudDraftPayload(form.value),
     });
 
     currentDraftId.value = response.data.id;
@@ -280,7 +280,30 @@ function buildDraftTitle(value: OrderFormModel) {
 }
 
 function cloneForm(value: OrderFormModel) {
-  return JSON.parse(JSON.stringify(value)) as OrderFormModel;
+  return cloneJson(value);
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function buildCloudDraftPayload(value: OrderFormModel) {
+  return {
+    ...cloneJson(value),
+    paymentImageFileIds: value.paymentImageList
+      .map((item) => item.id)
+      .filter((item): item is number => typeof item === 'number'),
+    paymentImageList: sanitizeUploadPreviewListForCloudDraft(
+      value.paymentImageList,
+    ),
+    items: value.items.map((item) => ({
+      ...cloneJson(item),
+      imageFileIds: item.imageList
+        .map((image) => image.id)
+        .filter((image): image is number => typeof image === 'number'),
+      imageList: sanitizeUploadPreviewListForCloudDraft(item.imageList),
+    })),
+  };
 }
 
 function normalizeDraftPayload(payload: unknown): OrderFormModel {
@@ -348,6 +371,18 @@ function cloneUploadPreviewList(value: UploadPreviewItem[]) {
     status: 'done' as const,
     message: item.message || '默认收款码',
   }));
+}
+
+function sanitizeUploadPreviewListForCloudDraft(value: UploadPreviewItem[]) {
+  return value
+    .filter((item) => typeof item.id === 'number')
+    .map((item) => ({
+      id: item.id,
+      url: item.url,
+      name: item.name,
+      status: 'done' as const,
+      message: item.message,
+    }));
 }
 
 async function ensurePaymentImagesUploaded() {

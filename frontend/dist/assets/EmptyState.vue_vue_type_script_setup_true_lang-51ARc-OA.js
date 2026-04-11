@@ -1,0 +1,1 @@
+import{d as n,f as o,c as s,b as c,r as p}from"./index-B2nbOqym.js";const a={class:"empty-state"},_=n({__name:"EmptyState",props:{description:{}},setup(e){return(r,i)=>{const t=p("van-empty");return o(),s("div",a,[c(t,{description:e.description},null,8,["description"])])}}});export{_};
