@@ -3,6 +3,12 @@ import { showFailToast } from 'vant';
 import router from '@/router';
 import { useAuthStore } from '@/stores/auth';
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    silent?: boolean;
+  }
+}
+
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL
     ? `${String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, '')}/api/v1`

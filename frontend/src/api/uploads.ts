@@ -5,11 +5,15 @@ import type { UploadedImage } from '@/types/order';
 export function uploadImage(
   file: File,
   bizType: 'order_product_image' | 'order_payment_code_image' = 'order_product_image',
+  options?: {
+    silent?: boolean;
+  },
 ) {
   const formData = new FormData();
   formData.append('file', file);
 
   return http.post<never, ApiResponse<UploadedImage>>('/uploads/images', formData, {
+    silent: options?.silent,
     params: { bizType },
     headers: {
       'Content-Type': 'multipart/form-data',

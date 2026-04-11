@@ -191,6 +191,13 @@ async function submitOrder() {
     });
     showSuccessToast(copied ? '提交成功，客户分享文案已复制' : '提交成功');
     router.replace(`/operator/orders/${response.data.orderId}`);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('默认收款码自动上传失败')
+    ) {
+      showFailToast(error.message);
+    }
   } finally {
     submitting.value = false;
   }
@@ -358,7 +365,17 @@ async function ensurePaymentImagesUploaded() {
     }
 
     const file = await dataUrlToFile(dataUrl, item.name || 'payment-code.jpg');
-    const response = await uploadImage(file, 'order_payment_code_image');
+    let response;
+    try {
+      response = await uploadImage(file, 'order_payment_code_image', {
+        silent: true,
+      });
+    } catch {
+      throw new Error(
+        '默认收款码自动上传失败，请重新上传收款码，或先清除默认收款码后再提交',
+      );
+    }
+
     nextList.push({
       ...item,
       id: response.data.id,
