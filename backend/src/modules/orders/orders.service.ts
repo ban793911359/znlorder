@@ -1132,45 +1132,72 @@ export class OrdersService {
         : SHIPMENT_STATUS.partial_shipped;
       const nextSequenceNo = (existingOrder.shipments?.length ?? 0) + 1;
 
-      const order = await tx.order.update({
-        where: { id },
-        data: {
-          courierCompany: shipOrderDto.courierCompany,
-          trackingNo: shipOrderDto.trackingNo,
-          warehouseRemark: shipmentRemark,
-          shippedAt,
-          status: nextStatus,
-        },
-        include: {
-          items: true,
-        },
-      });
+      await tx.$executeRaw(
+        Prisma.sql`
+          UPDATE orders
+          SET
+            courier_company = ${shipOrderDto.courierCompany},
+            tracking_no = ${shipOrderDto.trackingNo},
+            warehouse_remark = ${shipmentRemark},
+            shipped_at = ${shippedAt},
+            status = ${nextStatus}
+          WHERE id = ${id}
+        `,
+      );
 
-      await tx.orderShipment.create({
-        data: {
-          orderId: id,
-          sequenceNo: nextSequenceNo,
-          shipmentStatus,
-          courierCompany: shipOrderDto.courierCompany,
-          trackingNo: shipOrderDto.trackingNo,
-          shipmentRemark,
-          operatorId: currentUser.id,
-          shippedAt,
-        },
-      });
+      await tx.$executeRaw(
+        Prisma.sql`
+          INSERT INTO order_shipments (
+            order_id,
+            sequence_no,
+            shipment_status,
+            courier_company,
+            tracking_no,
+            shipment_remark,
+            operator_id,
+            shipped_at,
+            created_at,
+            updated_at
+          ) VALUES (
+            ${id},
+            ${nextSequenceNo},
+            ${shipmentStatus},
+            ${shipOrderDto.courierCompany},
+            ${shipOrderDto.trackingNo},
+            ${shipmentRemark},
+            ${currentUser.id},
+            ${shippedAt},
+            CURRENT_TIMESTAMP(3),
+            CURRENT_TIMESTAMP(3)
+          )
+        `,
+      );
 
-      await tx.orderStatusLog.create({
-        data: {
-          orderId: id,
-          fromStatus: existingOrder.status,
-          toStatus: nextStatus,
-          action: 'ship_order',
-          operatorId: currentUser.id,
-          note: isFullyShipped
-            ? 'Order fully shipped by warehouse'
-            : `Order partially shipped by warehouse${shipmentRemark ? `: ${shipmentRemark}` : ''}`,
-        },
-      });
+      await tx.$executeRaw(
+        Prisma.sql`
+          INSERT INTO order_status_logs (
+            order_id,
+            from_status,
+            to_status,
+            action,
+            operator_id,
+            note,
+            created_at
+          ) VALUES (
+            ${id},
+            ${existingOrder.status},
+            ${nextStatus},
+            ${'ship_order'},
+            ${currentUser.id},
+            ${
+              isFullyShipped
+                ? 'Order fully shipped by warehouse'
+                : `Order partially shipped by warehouse${shipmentRemark ? `: ${shipmentRemark}` : ''}`
+            },
+            CURRENT_TIMESTAMP(3)
+          )
+        `,
+      );
 
       const refreshedOrder = await tx.order.findUniqueOrThrow({
         where: { id },

@@ -70,12 +70,28 @@
         <van-field v-model="form.courierCompany" label="快递公司" placeholder="请输入快递公司" />
         <van-field v-model="form.trackingNo" label="运单号" placeholder="请输入运单号" />
         <div class="shipment-choice">
-          <van-checkbox :model-value="form.isPartialShipment" @click="setShipmentType('partial')">
-            部分发货
-          </van-checkbox>
-          <van-checkbox :model-value="form.isFullyShipped" @click="setShipmentType('full')">
-            已全部发货
-          </van-checkbox>
+          <button
+            type="button"
+            class="shipment-choice__item"
+            :class="{ 'shipment-choice__item--active': form.isPartialShipment }"
+            @click="setShipmentType('partial')"
+          >
+            <span class="shipment-choice__box">
+              <span v-if="form.isPartialShipment" class="shipment-choice__tick">✓</span>
+            </span>
+            <span>部分发货</span>
+          </button>
+          <button
+            type="button"
+            class="shipment-choice__item"
+            :class="{ 'shipment-choice__item--active': form.isFullyShipped }"
+            @click="setShipmentType('full')"
+          >
+            <span class="shipment-choice__box">
+              <span v-if="form.isFullyShipped" class="shipment-choice__tick">✓</span>
+            </span>
+            <span>已全部发货</span>
+          </button>
         </div>
         <van-field
           v-model="form.shipmentRemark"
@@ -210,8 +226,44 @@ async function submitShip() {
 <style scoped>
 .shipment-choice {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   padding: 12px 16px 4px;
+  flex-wrap: wrap;
+}
+
+.shipment-choice__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--van-border-color);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  color: var(--van-text-color);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.shipment-choice__item--active {
+  border-color: var(--van-primary-color);
+  color: var(--van-primary-color);
+  background: rgba(25, 137, 250, 0.06);
+}
+
+.shipment-choice__box {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 18px;
+}
+
+.shipment-choice__tick {
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .shipment-tip {
