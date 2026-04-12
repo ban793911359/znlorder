@@ -116,6 +116,9 @@
       </div>
     </van-popup>
   </div>
+  <div v-else class="page-content">
+    <empty-state :description="loadErrorMessage || '订单详情加载失败'" />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -151,6 +154,7 @@ const route = useRoute();
 const router = useRouter();
 
 const detail = ref<OrderDetail | null>(null);
+const loadErrorMessage = ref('');
 const editing = ref(false);
 const saving = ref(false);
 const customerHint = ref<IdentifyCustomerResult | null>(null);
@@ -184,10 +188,18 @@ onMounted(() => {
 });
 
 async function loadDetail() {
-  const response = await getOrderDetail(Number(route.params.id));
-  detail.value = response.data;
-  editForm.value = buildFormFromOrderDetail(response.data);
-  savedClientLink.value = loadJSON(`wechat-order-h5:client-link:${route.params.id}`);
+  try {
+    loadErrorMessage.value = '';
+    const response = await getOrderDetail(Number(route.params.id));
+    detail.value = response.data;
+    editForm.value = buildFormFromOrderDetail(response.data);
+    savedClientLink.value = loadJSON(`wechat-order-h5:client-link:${route.params.id}`);
+  } catch {
+    detail.value = null;
+    editForm.value = null;
+    loadErrorMessage.value = '订单详情加载失败，请稍后重试';
+    showFailToast(loadErrorMessage.value);
+  }
 }
 
 function toCustomerPage() {

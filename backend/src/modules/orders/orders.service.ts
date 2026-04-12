@@ -25,6 +25,7 @@ import { ShipOrderDto } from './dto/ship-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import {
+  type PresentableUploadFile,
   presentOrderBase,
   presentOrderImages,
   presentOrderItems,
@@ -50,6 +51,22 @@ type UploadFileAvailabilityRow = {
   id: number;
   order_id: number | null;
   biz_type: string;
+  deleted_at: Date | null;
+};
+
+type OrderUploadFileRow = {
+  id: number;
+  order_id: number | null;
+  order_item_id: number | null;
+  biz_type: string;
+  storage_driver: string;
+  storage_key: string | null;
+  original_name: string;
+  file_name: string;
+  mime_type: string;
+  file_size: number | bigint;
+  file_url: string;
+  expires_at: Date;
   deleted_at: Date | null;
 };
 
@@ -382,18 +399,16 @@ export class OrdersService {
     updateOrderDto: UpdateOrderDto,
     currentUser: JwtUser,
   ) {
-    const existingOrder = await this.prisma.order.findUnique({
+    const existingOrderBase = await this.prisma.order.findUnique({
       where: { id },
       include: {
         customer: true,
-        items: {
-          include: {
-            images: true,
-          },
-        },
-        images: true,
+        items: true,
       },
     });
+    const existingOrder = existingOrderBase
+      ? (await this.attachOrderMedia([existingOrderBase]))[0]
+      : null;
 
     if (!existingOrder) {
       throw new NotFoundException('Order not found');
@@ -409,14 +424,18 @@ export class OrdersService {
 
     const mergedItems =
       updateOrderDto.items ??
-      existingOrder.items.map((item) => ({
+      (existingOrder.items as Array<
+        (typeof existingOrder.items)[number] & {
+          images?: PresentableUploadFile[];
+        }
+      >).map((item) => ({
         productName: item.productName,
         productSpec: item.productSpec ?? undefined,
         quantity: item.quantity,
         unitPrice: toCurrencyNumber(item.unitPrice),
         lineAmount: toCurrencyNumber(item.lineAmount),
         remark: item.remark ?? undefined,
-        imageFileIds: item.images.map((image) => image.id),
+        imageFileIds: (item.images ?? []).map((image) => image.id),
       }));
     const removedPaymentImageIds =
       updateOrderDto.paymentImageFileIds === undefined
@@ -536,9 +555,13 @@ export class OrdersService {
       });
 
       if (updateOrderDto.items) {
-        const existingProductImageIds = existingOrder.items.flatMap((item) =>
-          item.images.map((image) => image.id),
-        );
+        const existingProductImageIds = (
+          existingOrder.items as Array<
+            (typeof existingOrder.items)[number] & {
+              images?: PresentableUploadFile[];
+            }
+          >
+        ).flatMap((item) => (item.images ?? []).map((image) => image.id));
         if (existingProductImageIds.length > 0) {
           await this.bindUploadFilesToOrder(tx, existingProductImageIds, {
             orderId: null,
@@ -600,16 +623,11 @@ export class OrdersService {
         },
       });
 
-      return tx.order.findUniqueOrThrow({
+      const order = await tx.order.findUniqueOrThrow({
         where: { id },
         include: {
           customer: true,
-          items: {
-            include: {
-              images: true,
-            },
-          },
-          images: true,
+          items: true,
           logs: {
             orderBy: { createdAt: 'desc' },
           },
@@ -623,6 +641,8 @@ export class OrdersService {
           },
         },
       });
+
+      return (await this.attachOrderMedia([order]))[0];
     });
 
     if (removedPaymentImageIds.length > 0) {
@@ -720,12 +740,7 @@ export class OrdersService {
               mobile: true,
             },
           },
-          items: {
-            include: {
-              images: true,
-            },
-          },
-          images: true,
+          items: true,
           createdBy: {
             select: {
               id: true,
@@ -737,11 +752,12 @@ export class OrdersService {
         },
       }),
     ]);
+    const ordersWithMedia = await this.attachOrderMedia(orders);
 
     return {
       success: true,
       data: {
-        list: orders.map((order) => ({
+        list: ordersWithMedia.map((order) => ({
           ...presentOrderBase(order),
           customer: order.customer,
           createdBy: order.createdBy,
@@ -756,16 +772,11 @@ export class OrdersService {
   }
 
   async getOrderDetail(id: number) {
-    const order = await this.prisma.order.findUnique({
+    const orderBase = await this.prisma.order.findUnique({
       where: { id },
       include: {
         customer: true,
-        items: {
-          include: {
-            images: true,
-          },
-        },
-        images: true,
+        items: true,
         logs: {
           orderBy: { createdAt: 'desc' },
         },
@@ -779,6 +790,7 @@ export class OrdersService {
         },
       },
     });
+    const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;
 
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -810,16 +822,11 @@ export class OrdersService {
     cancelOrderDto: CancelOrderDto,
     currentUser: JwtUser,
   ) {
-    const existingOrder = await this.prisma.order.findUnique({
+    const existingOrderBase = await this.prisma.order.findUnique({
       where: { id },
       include: {
         customer: true,
-        items: {
-          include: {
-            images: true,
-          },
-        },
-        images: true,
+        items: true,
         logs: {
           orderBy: { createdAt: 'desc' },
         },
@@ -833,6 +840,9 @@ export class OrdersService {
         },
       },
     });
+    const existingOrder = existingOrderBase
+      ? (await this.attachOrderMedia([existingOrderBase]))[0]
+      : null;
 
     if (!existingOrder) {
       throw new NotFoundException('Order not found');
@@ -868,16 +878,11 @@ export class OrdersService {
         },
       });
 
-      return tx.order.findUniqueOrThrow({
+      const order = await tx.order.findUniqueOrThrow({
         where: { id },
         include: {
           customer: true,
-          items: {
-            include: {
-              images: true,
-            },
-          },
-          images: true,
+          items: true,
           logs: {
             orderBy: { createdAt: 'desc' },
           },
@@ -891,6 +896,8 @@ export class OrdersService {
           },
         },
       });
+
+      return (await this.attachOrderMedia([order]))[0];
     });
 
     return {
@@ -985,15 +992,15 @@ export class OrdersService {
             },
           },
           items: true,
-          images: true,
         },
       }),
     ]);
+    const ordersWithMedia = await this.attachOrderMedia(orders);
 
     return {
       success: true,
       data: {
-        list: orders.map((order) => ({
+        list: ordersWithMedia.map((order) => ({
           id: order.id,
           orderNo: order.orderNo,
           status: order.status,
@@ -1030,17 +1037,15 @@ export class OrdersService {
   }
 
   async shipOrder(id: number, shipOrderDto: ShipOrderDto, currentUser: JwtUser) {
-    const existingOrder = await this.prisma.order.findUnique({
+    const existingOrderBase = await this.prisma.order.findUnique({
       where: { id },
       include: {
-        items: {
-          include: {
-            images: true,
-          },
-        },
-        images: true,
+        items: true,
       },
     });
+    const existingOrder = existingOrderBase
+      ? (await this.attachOrderMedia([existingOrderBase]))[0]
+      : null;
 
     if (!existingOrder) {
       throw new NotFoundException('Order not found');
@@ -1061,12 +1066,7 @@ export class OrdersService {
           status: OrderStatus.shipped,
         },
         include: {
-          items: {
-            include: {
-              images: true,
-            },
-          },
-          images: true,
+          items: true,
         },
       });
 
@@ -1081,7 +1081,7 @@ export class OrdersService {
         },
       });
 
-      return order;
+      return (await this.attachOrderMedia([order]))[0];
     });
 
     return {
@@ -1094,7 +1094,7 @@ export class OrdersService {
   }
 
   async getWarehouseOrderDetail(id: number) {
-    const order = await this.prisma.order.findUnique({
+    const orderBase = await this.prisma.order.findUnique({
       where: { id },
       include: {
         customer: {
@@ -1103,14 +1103,10 @@ export class OrdersService {
             mobile: true,
           },
         },
-        items: {
-          include: {
-            images: true,
-          },
-        },
-        images: true,
+        items: true,
       },
     });
+    const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;
 
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -1138,17 +1134,13 @@ export class OrdersService {
     orderNo: string,
     publicOrderQueryDto: PublicOrderQueryDto,
   ) {
-    const order = await this.prisma.order.findUnique({
+    const orderBase = await this.prisma.order.findUnique({
       where: { orderNo },
       include: {
-        items: {
-          include: {
-            images: true,
-          },
-        },
-        images: true,
+        items: true,
       },
     });
+    const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;
 
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -1318,6 +1310,98 @@ export class OrdersService {
         WHERE id IN (${Prisma.join(uniqueIds)})
       `,
     );
+  }
+
+  private async loadOrderImagesMap(orderIds: number[]) {
+    const uniqueOrderIds = [...new Set(orderIds)].filter((id) => Number.isFinite(id));
+    const imageMap = new Map<number, PresentableUploadFile[]>();
+
+    if (uniqueOrderIds.length === 0) {
+      return imageMap;
+    }
+
+    const rows = await this.prisma.$queryRaw<OrderUploadFileRow[]>(
+      Prisma.sql`
+        SELECT
+          id,
+          order_id,
+          order_item_id,
+          biz_type,
+          storage_driver,
+          storage_key,
+          original_name,
+          file_name,
+          mime_type,
+          file_size,
+          file_url,
+          expires_at,
+          deleted_at
+        FROM upload_files
+        WHERE order_id IN (${Prisma.join(uniqueOrderIds)})
+        ORDER BY id ASC
+      `,
+    );
+
+    for (const row of rows) {
+      if (row.order_id === null) {
+        continue;
+      }
+
+      const list = imageMap.get(row.order_id) ?? [];
+      list.push({
+        id: row.id,
+        orderId: row.order_id,
+        orderItemId: row.order_item_id,
+        bizType: row.biz_type,
+        storageDriver: row.storage_driver,
+        storageKey: row.storage_key,
+        originalName: row.original_name,
+        fileName: row.file_name,
+        mimeType: row.mime_type,
+        fileSize: Number(row.file_size),
+        fileUrl: row.file_url,
+        expiresAt: row.expires_at,
+        deletedAt: row.deleted_at,
+      });
+      imageMap.set(row.order_id, list);
+    }
+
+    return imageMap;
+  }
+
+  private async attachOrderMedia<
+    T extends {
+      id: number;
+      items: Array<{
+        id: number;
+      }>;
+    },
+  >(orders: T[]) {
+    const imageMap = await this.loadOrderImagesMap(orders.map((order) => order.id));
+
+    return orders.map((order) => {
+      const orderImages = imageMap.get(order.id) ?? [];
+      const itemImageMap = new Map<number, PresentableUploadFile[]>();
+
+      for (const image of orderImages) {
+        if (image.orderItemId === null || image.orderItemId === undefined) {
+          continue;
+        }
+
+        const itemImages = itemImageMap.get(image.orderItemId) ?? [];
+        itemImages.push(image);
+        itemImageMap.set(image.orderItemId, itemImages);
+      }
+
+      return {
+        ...order,
+        images: orderImages,
+        items: order.items.map((item) => ({
+          ...item,
+          images: itemImageMap.get(item.id) ?? [],
+        })),
+      };
+    });
   }
 
   private async cloneUploadFilesToOrder(

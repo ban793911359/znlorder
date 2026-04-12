@@ -1,7 +1,23 @@
-import { Order, OrderItem, OrderStatusLog, UploadFile } from '@prisma/client';
+import { Order, OrderItem, OrderStatusLog } from '@prisma/client';
 import { toCurrencyNumber } from '../../common/utils/decimal.util';
 
-function resolveUploadFileUrl(image: UploadFile) {
+export type PresentableUploadFile = {
+  id: number;
+  orderId?: number | null;
+  orderItemId?: number | null;
+  bizType: string;
+  storageDriver: string;
+  storageKey: string | null;
+  originalName: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  fileUrl: string;
+  expiresAt: Date | string;
+  deletedAt: Date | string | null;
+};
+
+function resolveUploadFileUrl(image: PresentableUploadFile) {
   if (image.storageDriver === 'r2' && image.storageKey) {
     const publicBaseUrl = (process.env.UPLOAD_PUBLIC_BASE_URL ?? '').trim();
     const prefix = ((process.env.R2_BUCKET_PREFIX ?? 'order-images').trim() ||
@@ -23,7 +39,7 @@ function resolveUploadFileUrl(image: UploadFile) {
 }
 
 export function presentOrderItems(
-  items: Array<OrderItem & { images?: UploadFile[] }>,
+  items: Array<OrderItem & { images?: PresentableUploadFile[] }>,
 ) {
   return items.map((item) => ({
     id: item.id,
@@ -37,7 +53,7 @@ export function presentOrderItems(
   }));
 }
 
-export function presentOrderImages(images: UploadFile[]) {
+export function presentOrderImages(images: PresentableUploadFile[]) {
   const now = Date.now();
   return images.map((image) => ({
     id: image.id,
@@ -67,8 +83,8 @@ export function presentOrderLogs(logs: OrderStatusLog[]) {
 
 export function presentOrderBase(
   order: Order & {
-    items: Array<OrderItem & { images?: UploadFile[] }>;
-    images: UploadFile[];
+    items: Array<OrderItem & { images?: PresentableUploadFile[] }>;
+    images: PresentableUploadFile[];
   },
 ) {
   const itemList = presentOrderItems(order.items);
