@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus, Prisma } from '@prisma/client';
+import { OrderStatus, Prisma, ShipmentStatus } from '@prisma/client';
 import { JwtUser } from '../../common/interfaces/jwt-user.interface';
 import {
   almostEqualMoney,
@@ -415,6 +415,7 @@ export class OrdersService {
     }
 
     if (
+      existingOrder.status === OrderStatus.partial_shipped ||
       existingOrder.status === OrderStatus.shipped ||
       existingOrder.status === OrderStatus.completed ||
       existingOrder.status === OrderStatus.cancelled
@@ -777,6 +778,9 @@ export class OrdersService {
       include: {
         customer: true,
         items: true,
+        shipments: {
+          orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+        },
         logs: {
           orderBy: { createdAt: 'desc' },
         },
@@ -827,6 +831,9 @@ export class OrdersService {
       include: {
         customer: true,
         items: true,
+        shipments: {
+          orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+        },
         logs: {
           orderBy: { createdAt: 'desc' },
         },
@@ -849,6 +856,7 @@ export class OrdersService {
     }
 
     if (
+      existingOrder.status === OrderStatus.partial_shipped ||
       existingOrder.status === OrderStatus.shipped ||
       existingOrder.status === OrderStatus.completed
     ) {
@@ -934,6 +942,7 @@ export class OrdersService {
     const skip = (page - 1) * pageSize;
     const warehouseStatuses: OrderStatus[] = [
       OrderStatus.pending_shipment,
+      OrderStatus.partial_shipped,
       OrderStatus.shipped,
     ];
     const status =
@@ -943,7 +952,12 @@ export class OrdersService {
 
     const keyword = query.keyword?.trim();
     const where: Prisma.OrderWhereInput = {
-      status,
+      status:
+        status === OrderStatus.pending_shipment
+          ? {
+              in: [OrderStatus.pending_shipment, OrderStatus.partial_shipped],
+            }
+          : status,
       ...(query.orderNo ? { orderNo: { contains: query.orderNo } } : {}),
       ...(query.mobile ? { receiverMobile: { contains: query.mobile } } : {}),
       ...(keyword
@@ -992,6 +1006,9 @@ export class OrdersService {
             },
           },
           items: true,
+          shipments: {
+            orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+          },
         },
       }),
     ]);
@@ -1018,6 +1035,7 @@ export class OrdersService {
           courierCompany: order.courierCompany,
           trackingNo: order.trackingNo,
           shippedAt: order.shippedAt,
+          shipments: order.shipments,
           createdAt: order.createdAt,
           updatedAt: order.updatedAt,
           customer: order.customer,
@@ -1041,6 +1059,9 @@ export class OrdersService {
       where: { id },
       include: {
         items: true,
+        shipments: {
+          orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+        },
       },
     });
     const existingOrder = existingOrderBase
@@ -1051,22 +1072,62 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    if (existingOrder.status !== OrderStatus.pending_shipment) {
-      throw new BadRequestException('Only pending shipment orders can be shipped');
+    if (
+      existingOrder.status !== OrderStatus.pending_shipment &&
+      existingOrder.status !== OrderStatus.partial_shipped
+    ) {
+      throw new BadRequestException('Only pending or partial shipment orders can be shipped');
+    }
+
+    const isPartialShipment = shipOrderDto.isPartialShipment === true;
+    const isFullyShipped = shipOrderDto.isFullyShipped === true;
+
+    if (isPartialShipment === isFullyShipped) {
+      throw new BadRequestException('请选择部分发货或已全部发货其中一项');
+    }
+
+    const shipmentRemark = shipOrderDto.shipmentRemark?.trim() || null;
+    if (isPartialShipment && !shipmentRemark) {
+      throw new BadRequestException('部分发货时请填写未发货备注信息');
     }
 
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      const shippedAt = new Date();
+      const nextStatus = isFullyShipped
+        ? OrderStatus.shipped
+        : OrderStatus.partial_shipped;
+      const shipmentStatus = isFullyShipped
+        ? ShipmentStatus.shipped
+        : ShipmentStatus.partial_shipped;
+      const nextSequenceNo = (existingOrder.shipments?.length ?? 0) + 1;
+
       const order = await tx.order.update({
         where: { id },
         data: {
           courierCompany: shipOrderDto.courierCompany,
           trackingNo: shipOrderDto.trackingNo,
-          warehouseRemark: shipOrderDto.warehouseRemark,
-          shippedAt: new Date(),
-          status: OrderStatus.shipped,
+          warehouseRemark: shipmentRemark,
+          shippedAt,
+          status: nextStatus,
         },
         include: {
           items: true,
+          shipments: {
+            orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+          },
+        },
+      });
+
+      await tx.orderShipment.create({
+        data: {
+          orderId: id,
+          sequenceNo: nextSequenceNo,
+          shipmentStatus,
+          courierCompany: shipOrderDto.courierCompany,
+          trackingNo: shipOrderDto.trackingNo,
+          shipmentRemark,
+          operatorId: currentUser.id,
+          shippedAt,
         },
       });
 
@@ -1074,21 +1135,33 @@ export class OrdersService {
         data: {
           orderId: id,
           fromStatus: existingOrder.status,
-          toStatus: OrderStatus.shipped,
+          toStatus: nextStatus,
           action: 'ship_order',
           operatorId: currentUser.id,
-          note: 'Order shipped by warehouse',
+          note: isFullyShipped
+            ? 'Order fully shipped by warehouse'
+            : `Order partially shipped by warehouse${shipmentRemark ? `: ${shipmentRemark}` : ''}`,
         },
       });
 
-      return (await this.attachOrderMedia([order]))[0];
+      const refreshedOrder = await tx.order.findUniqueOrThrow({
+        where: { id },
+        include: {
+          items: true,
+          shipments: {
+            orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+          },
+        },
+      });
+
+      return (await this.attachOrderMedia([refreshedOrder]))[0];
     });
 
     return {
       success: true,
       data: {
         ...presentOrderBase(updatedOrder),
-        warehouseRemark: shipOrderDto.warehouseRemark ?? null,
+        warehouseRemark: updatedOrder.warehouseRemark ?? null,
       },
     };
   }
@@ -1104,6 +1177,9 @@ export class OrdersService {
           },
         },
         items: true,
+        shipments: {
+          orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+        },
       },
     });
     const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;
@@ -1114,9 +1190,10 @@ export class OrdersService {
 
     if (
       order.status !== OrderStatus.pending_shipment &&
+      order.status !== OrderStatus.partial_shipped &&
       order.status !== OrderStatus.shipped
     ) {
-      throw new BadRequestException('Only pending or shipped orders are available');
+      throw new BadRequestException('Only pending, partial or shipped orders are available');
     }
 
     return {
@@ -1138,6 +1215,9 @@ export class OrdersService {
       where: { orderNo },
       include: {
         items: true,
+        shipments: {
+          orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+        },
       },
     });
     const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;

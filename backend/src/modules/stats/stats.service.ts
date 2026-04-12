@@ -63,7 +63,9 @@ export class StatsService {
       data: {
         totalOrders,
         draftCount: statusMap.get(OrderStatus.draft) ?? 0,
-        pendingShipmentCount: statusMap.get(OrderStatus.pending_shipment) ?? 0,
+        pendingShipmentCount:
+          (statusMap.get(OrderStatus.pending_shipment) ?? 0) +
+          (statusMap.get(OrderStatus.partial_shipped) ?? 0),
         shippedCount: statusMap.get(OrderStatus.shipped) ?? 0,
         completedCount: statusMap.get(OrderStatus.completed) ?? 0,
         cancelledCount: statusMap.get(OrderStatus.cancelled) ?? 0,

@@ -17,6 +17,7 @@ const tagType = computed(() => {
   const map: Record<OrderStatus, 'primary' | 'success' | 'warning' | 'danger' | 'default'> = {
     draft: 'default',
     pending_shipment: 'warning',
+    partial_shipped: 'primary',
     shipped: 'primary',
     completed: 'success',
     cancelled: 'danger',

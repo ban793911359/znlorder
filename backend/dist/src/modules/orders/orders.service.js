@@ -284,7 +284,8 @@ let OrdersService = OrdersService_1 = class OrdersService {
         if (!existingOrder) {
             throw new common_1.NotFoundException('Order not found');
         }
-        if (existingOrder.status === client_1.OrderStatus.shipped ||
+        if (existingOrder.status === client_1.OrderStatus.partial_shipped ||
+            existingOrder.status === client_1.OrderStatus.shipped ||
             existingOrder.status === client_1.OrderStatus.completed ||
             existingOrder.status === client_1.OrderStatus.cancelled) {
             throw new common_1.BadRequestException('Current order can no longer be edited');
@@ -573,6 +574,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
             include: {
                 customer: true,
                 items: true,
+                shipments: {
+                    orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+                },
                 logs: {
                     orderBy: { createdAt: 'desc' },
                 },
@@ -616,6 +620,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
             include: {
                 customer: true,
                 items: true,
+                shipments: {
+                    orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+                },
                 logs: {
                     orderBy: { createdAt: 'desc' },
                 },
@@ -635,7 +642,8 @@ let OrdersService = OrdersService_1 = class OrdersService {
         if (!existingOrder) {
             throw new common_1.NotFoundException('Order not found');
         }
-        if (existingOrder.status === client_1.OrderStatus.shipped ||
+        if (existingOrder.status === client_1.OrderStatus.partial_shipped ||
+            existingOrder.status === client_1.OrderStatus.shipped ||
             existingOrder.status === client_1.OrderStatus.completed) {
             throw new common_1.BadRequestException('Shipped or completed orders cannot be cancelled');
         }
@@ -711,6 +719,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
         const skip = (page - 1) * pageSize;
         const warehouseStatuses = [
             client_1.OrderStatus.pending_shipment,
+            client_1.OrderStatus.partial_shipped,
             client_1.OrderStatus.shipped,
         ];
         const status = query.status && warehouseStatuses.includes(query.status)
@@ -718,7 +727,11 @@ let OrdersService = OrdersService_1 = class OrdersService {
             : client_1.OrderStatus.pending_shipment;
         const keyword = query.keyword?.trim();
         const where = {
-            status,
+            status: status === client_1.OrderStatus.pending_shipment
+                ? {
+                    in: [client_1.OrderStatus.pending_shipment, client_1.OrderStatus.partial_shipped],
+                }
+                : status,
             ...(query.orderNo ? { orderNo: { contains: query.orderNo } } : {}),
             ...(query.mobile ? { receiverMobile: { contains: query.mobile } } : {}),
             ...(keyword
@@ -765,6 +778,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
                         },
                     },
                     items: true,
+                    shipments: {
+                        orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+                    },
                 },
             }),
         ]);
@@ -790,6 +806,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                     courierCompany: order.courierCompany,
                     trackingNo: order.trackingNo,
                     shippedAt: order.shippedAt,
+                    shipments: order.shipments,
                     createdAt: order.createdAt,
                     updatedAt: order.updatedAt,
                     customer: order.customer,
@@ -811,6 +828,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
             where: { id },
             include: {
                 items: true,
+                shipments: {
+                    orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+                },
             },
         });
         const existingOrder = existingOrderBase
@@ -819,40 +839,84 @@ let OrdersService = OrdersService_1 = class OrdersService {
         if (!existingOrder) {
             throw new common_1.NotFoundException('Order not found');
         }
-        if (existingOrder.status !== client_1.OrderStatus.pending_shipment) {
-            throw new common_1.BadRequestException('Only pending shipment orders can be shipped');
+        if (existingOrder.status !== client_1.OrderStatus.pending_shipment &&
+            existingOrder.status !== client_1.OrderStatus.partial_shipped) {
+            throw new common_1.BadRequestException('Only pending or partial shipment orders can be shipped');
+        }
+        const isPartialShipment = shipOrderDto.isPartialShipment === true;
+        const isFullyShipped = shipOrderDto.isFullyShipped === true;
+        if (isPartialShipment === isFullyShipped) {
+            throw new common_1.BadRequestException('请选择部分发货或已全部发货其中一项');
+        }
+        const shipmentRemark = shipOrderDto.shipmentRemark?.trim() || null;
+        if (isPartialShipment && !shipmentRemark) {
+            throw new common_1.BadRequestException('部分发货时请填写未发货备注信息');
         }
         const updatedOrder = await this.prisma.$transaction(async (tx) => {
+            const shippedAt = new Date();
+            const nextStatus = isFullyShipped
+                ? client_1.OrderStatus.shipped
+                : client_1.OrderStatus.partial_shipped;
+            const shipmentStatus = isFullyShipped
+                ? client_1.ShipmentStatus.shipped
+                : client_1.ShipmentStatus.partial_shipped;
+            const nextSequenceNo = (existingOrder.shipments?.length ?? 0) + 1;
             const order = await tx.order.update({
                 where: { id },
                 data: {
                     courierCompany: shipOrderDto.courierCompany,
                     trackingNo: shipOrderDto.trackingNo,
-                    warehouseRemark: shipOrderDto.warehouseRemark,
-                    shippedAt: new Date(),
-                    status: client_1.OrderStatus.shipped,
+                    warehouseRemark: shipmentRemark,
+                    shippedAt,
+                    status: nextStatus,
                 },
                 include: {
                     items: true,
+                    shipments: {
+                        orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+                    },
+                },
+            });
+            await tx.orderShipment.create({
+                data: {
+                    orderId: id,
+                    sequenceNo: nextSequenceNo,
+                    shipmentStatus,
+                    courierCompany: shipOrderDto.courierCompany,
+                    trackingNo: shipOrderDto.trackingNo,
+                    shipmentRemark,
+                    operatorId: currentUser.id,
+                    shippedAt,
                 },
             });
             await tx.orderStatusLog.create({
                 data: {
                     orderId: id,
                     fromStatus: existingOrder.status,
-                    toStatus: client_1.OrderStatus.shipped,
+                    toStatus: nextStatus,
                     action: 'ship_order',
                     operatorId: currentUser.id,
-                    note: 'Order shipped by warehouse',
+                    note: isFullyShipped
+                        ? 'Order fully shipped by warehouse'
+                        : `Order partially shipped by warehouse${shipmentRemark ? `: ${shipmentRemark}` : ''}`,
                 },
             });
-            return (await this.attachOrderMedia([order]))[0];
+            const refreshedOrder = await tx.order.findUniqueOrThrow({
+                where: { id },
+                include: {
+                    items: true,
+                    shipments: {
+                        orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+                    },
+                },
+            });
+            return (await this.attachOrderMedia([refreshedOrder]))[0];
         });
         return {
             success: true,
             data: {
                 ...(0, order_presenter_1.presentOrderBase)(updatedOrder),
-                warehouseRemark: shipOrderDto.warehouseRemark ?? null,
+                warehouseRemark: updatedOrder.warehouseRemark ?? null,
             },
         };
     }
@@ -867,6 +931,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
                     },
                 },
                 items: true,
+                shipments: {
+                    orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+                },
             },
         });
         const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;
@@ -874,8 +941,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
             throw new common_1.NotFoundException('Order not found');
         }
         if (order.status !== client_1.OrderStatus.pending_shipment &&
+            order.status !== client_1.OrderStatus.partial_shipped &&
             order.status !== client_1.OrderStatus.shipped) {
-            throw new common_1.BadRequestException('Only pending or shipped orders are available');
+            throw new common_1.BadRequestException('Only pending, partial or shipped orders are available');
         }
         return {
             success: true,
@@ -891,6 +959,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
             where: { orderNo },
             include: {
                 items: true,
+                shipments: {
+                    orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
+                },
             },
         });
         const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;

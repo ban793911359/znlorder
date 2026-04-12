@@ -66,7 +66,8 @@ let StatsService = class StatsService {
             data: {
                 totalOrders,
                 draftCount: statusMap.get(client_1.OrderStatus.draft) ?? 0,
-                pendingShipmentCount: statusMap.get(client_1.OrderStatus.pending_shipment) ?? 0,
+                pendingShipmentCount: (statusMap.get(client_1.OrderStatus.pending_shipment) ?? 0) +
+                    (statusMap.get(client_1.OrderStatus.partial_shipped) ?? 0),
                 shippedCount: statusMap.get(client_1.OrderStatus.shipped) ?? 0,
                 completedCount: statusMap.get(client_1.OrderStatus.completed) ?? 0,
                 cancelledCount: statusMap.get(client_1.OrderStatus.cancelled) ?? 0,

@@ -20,9 +20,15 @@ enum UserStatus {
 enum OrderStatus {
   draft
   pending_shipment
+  partial_shipped
   shipped
   completed
   cancelled
+}
+
+enum ShipmentStatus {
+  partial_shipped
+  shipped
 }
 
 enum UploadBizType {
@@ -43,6 +49,7 @@ model User {
   createdOrders Order[]     @relation("CreatedOrders")
   uploadedFiles UploadFile[]
   orderLogs    OrderStatusLog[]
+  orderShipments OrderShipment[]
   orderDrafts  OrderDraft[]
 
   @@map("users")
@@ -108,6 +115,7 @@ model Order {
   createdBy         User              @relation("CreatedOrders", fields: [createdById], references: [id])
   items             OrderItem[]
   images            UploadFile[]
+  shipments         OrderShipment[]
   logs              OrderStatusLog[]
 
   @@index([customerId], map: "idx_orders_customer_id")
@@ -174,6 +182,26 @@ model OrderStatusLog {
 
   @@index([orderId], map: "idx_order_status_logs_order_id")
   @@map("order_status_logs")
+}
+
+model OrderShipment {
+  id              Int            @id @default(autoincrement())
+  orderId         Int            @map("order_id")
+  sequenceNo      Int            @map("sequence_no")
+  shipmentStatus  ShipmentStatus @map("shipment_status")
+  courierCompany  String         @map("courier_company") @db.VarChar(50)
+  trackingNo      String         @map("tracking_no") @db.VarChar(50)
+  shipmentRemark  String?        @map("shipment_remark") @db.VarChar(1000)
+  operatorId      Int?           @map("operator_id")
+  shippedAt       DateTime       @map("shipped_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  order           Order          @relation(fields: [orderId], references: [id])
+  operator        User?          @relation(fields: [operatorId], references: [id])
+
+  @@unique([orderId, sequenceNo], map: "uniq_order_shipments_order_sequence")
+  @@index([orderId, shippedAt], map: "idx_order_shipments_order_shipped_at")
+  @@map("order_shipments")
 }
 
 model OrderDraft {

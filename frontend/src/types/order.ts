@@ -1,9 +1,12 @@
 export type OrderStatus =
   | 'draft'
   | 'pending_shipment'
+  | 'partial_shipped'
   | 'shipped'
   | 'completed'
   | 'cancelled';
+
+export type ShipmentStatus = 'partial_shipped' | 'shipped';
 
 export interface UploadedImage {
   id: number;
@@ -15,6 +18,19 @@ export interface UploadedImage {
   expiresAt?: string | null;
   deletedAt?: string | null;
   available?: boolean;
+}
+
+export interface OrderShipment {
+  id: number;
+  sequenceNo: number;
+  shipmentStatus: ShipmentStatus;
+  courierCompany: string;
+  trackingNo: string;
+  shipmentRemark?: string | null;
+  operatorId?: number | null;
+  shippedAt: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface OrderItem {
@@ -61,6 +77,7 @@ export interface OrderSummary {
   items: OrderItem[];
   images: UploadedImage[];
   paymentImages?: UploadedImage[];
+  shipments?: OrderShipment[];
   warehouseRemark?: string | null;
   customer?: CustomerSummary;
   createdBy?: {

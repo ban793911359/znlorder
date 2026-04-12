@@ -15,7 +15,7 @@
     <div class="order-card__address">
       {{ order.receiverFullAddress || formatAddress([order.receiverProvince, order.receiverCity, order.receiverDistrict, order.receiverAddress]) }}
     </div>
-    <div v-if="order.status === 'shipped'" class="order-card__footer">
+    <div v-if="order.status === 'partial_shipped' || order.status === 'shipped'" class="order-card__footer">
       {{ order.courierCompany || '--' }} / {{ order.trackingNo || '--' }}
     </div>
     <div class="order-card__footer">{{ formatDateTime(order.createdAt) }}</div>

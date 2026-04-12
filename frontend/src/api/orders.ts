@@ -95,7 +95,9 @@ export function shipOrder(
   payload: {
     courierCompany: string;
     trackingNo: string;
-    warehouseRemark?: string;
+    shipmentRemark?: string;
+    isPartialShipment?: boolean;
+    isFullyShipped?: boolean;
   },
 ) {
   return http.post<never, ApiResponse<OrderDetail>>(

@@ -31,4 +31,14 @@ __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(1000),
     __metadata("design:type", String)
-], ShipOrderDto.prototype, "warehouseRemark", void 0);
+], ShipOrderDto.prototype, "shipmentRemark", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ShipOrderDto.prototype, "isPartialShipment", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ShipOrderDto.prototype, "isFullyShipped", void 0);

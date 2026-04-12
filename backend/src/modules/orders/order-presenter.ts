@@ -1,4 +1,4 @@
-import { Order, OrderItem, OrderStatusLog } from '@prisma/client';
+import { Order, OrderItem, OrderShipment, OrderStatusLog } from '@prisma/client';
 import { toCurrencyNumber } from '../../common/utils/decimal.util';
 
 export type PresentableUploadFile = {
@@ -15,6 +15,19 @@ export type PresentableUploadFile = {
   fileUrl: string;
   expiresAt: Date | string;
   deletedAt: Date | string | null;
+};
+
+export type PresentableOrderShipment = {
+  id: number;
+  sequenceNo: number;
+  shipmentStatus: 'partial_shipped' | 'shipped';
+  courierCompany: string;
+  trackingNo: string;
+  shipmentRemark: string | null;
+  operatorId?: number | null;
+  shippedAt: Date | string;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
 };
 
 function resolveUploadFileUrl(image: PresentableUploadFile) {
@@ -81,10 +94,32 @@ export function presentOrderLogs(logs: OrderStatusLog[]) {
   }));
 }
 
+export function presentOrderShipments(shipments: PresentableOrderShipment[]) {
+  return shipments
+    .slice()
+    .sort(
+      (left, right) =>
+        new Date(left.shippedAt).getTime() - new Date(right.shippedAt).getTime(),
+    )
+    .map((shipment) => ({
+      id: shipment.id,
+      sequenceNo: shipment.sequenceNo,
+      shipmentStatus: shipment.shipmentStatus,
+      courierCompany: shipment.courierCompany,
+      trackingNo: shipment.trackingNo,
+      shipmentRemark: shipment.shipmentRemark,
+      operatorId: shipment.operatorId ?? null,
+      shippedAt: shipment.shippedAt,
+      createdAt: shipment.createdAt,
+      updatedAt: shipment.updatedAt,
+    }));
+}
+
 export function presentOrderBase(
   order: Order & {
     items: Array<OrderItem & { images?: PresentableUploadFile[] }>;
     images: PresentableUploadFile[];
+    shipments?: Array<OrderShipment | PresentableOrderShipment>;
   },
 ) {
   const itemList = presentOrderItems(order.items);
@@ -97,6 +132,10 @@ export function presentOrderBase(
   const paymentImages = presentOrderImages(
     order.images.filter((image) => image.bizType === 'order_payment_code_image'),
   );
+  const shipments = presentOrderShipments(
+    (order.shipments ?? []) as PresentableOrderShipment[],
+  );
+  const latestShipment = shipments.at(-1) ?? null;
 
   if (fallbackImages.length > 0 && itemList.every((item) => !item.images.length) && itemList[0]) {
     itemList[0] = {
@@ -120,13 +159,14 @@ export function presentOrderBase(
     shippingFee: toCurrencyNumber(order.shippingFee),
     discountAmount: toCurrencyNumber(order.discountAmount),
     payableAmount: toCurrencyNumber(order.payableAmount),
-    courierCompany: order.courierCompany,
-    trackingNo: order.trackingNo,
-    shippedAt: order.shippedAt,
+    courierCompany: latestShipment?.courierCompany ?? order.courierCompany,
+    trackingNo: latestShipment?.trackingNo ?? order.trackingNo,
+    shippedAt: latestShipment?.shippedAt ?? order.shippedAt,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     items: itemList,
     images: fallbackImages,
     paymentImages,
+    shipments,
   };
 }

@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class ShipOrderDto {
   @IsString()
@@ -14,5 +20,13 @@ export class ShipOrderDto {
   @IsOptional()
   @IsString()
   @MaxLength(1000)
-  warehouseRemark?: string;
+  shipmentRemark?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isPartialShipment?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isFullyShipped?: boolean;
 }

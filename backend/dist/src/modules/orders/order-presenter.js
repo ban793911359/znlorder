@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.presentOrderItems = presentOrderItems;
 exports.presentOrderImages = presentOrderImages;
 exports.presentOrderLogs = presentOrderLogs;
+exports.presentOrderShipments = presentOrderShipments;
 exports.presentOrderBase = presentOrderBase;
 const decimal_util_1 = require("../../common/utils/decimal.util");
 function resolveUploadFileUrl(image) {
@@ -60,10 +61,29 @@ function presentOrderLogs(logs) {
         createdAt: log.createdAt,
     }));
 }
+function presentOrderShipments(shipments) {
+    return shipments
+        .slice()
+        .sort((left, right) => new Date(left.shippedAt).getTime() - new Date(right.shippedAt).getTime())
+        .map((shipment) => ({
+        id: shipment.id,
+        sequenceNo: shipment.sequenceNo,
+        shipmentStatus: shipment.shipmentStatus,
+        courierCompany: shipment.courierCompany,
+        trackingNo: shipment.trackingNo,
+        shipmentRemark: shipment.shipmentRemark,
+        operatorId: shipment.operatorId ?? null,
+        shippedAt: shipment.shippedAt,
+        createdAt: shipment.createdAt,
+        updatedAt: shipment.updatedAt,
+    }));
+}
 function presentOrderBase(order) {
     const itemList = presentOrderItems(order.items);
     const fallbackImages = presentOrderImages(order.images.filter((image) => image.bizType === 'order_product_image' && image.orderItemId === null));
     const paymentImages = presentOrderImages(order.images.filter((image) => image.bizType === 'order_payment_code_image'));
+    const shipments = presentOrderShipments((order.shipments ?? []));
+    const latestShipment = shipments.at(-1) ?? null;
     if (fallbackImages.length > 0 && itemList.every((item) => !item.images.length) && itemList[0]) {
         itemList[0] = {
             ...itemList[0],
@@ -85,13 +105,14 @@ function presentOrderBase(order) {
         shippingFee: (0, decimal_util_1.toCurrencyNumber)(order.shippingFee),
         discountAmount: (0, decimal_util_1.toCurrencyNumber)(order.discountAmount),
         payableAmount: (0, decimal_util_1.toCurrencyNumber)(order.payableAmount),
-        courierCompany: order.courierCompany,
-        trackingNo: order.trackingNo,
-        shippedAt: order.shippedAt,
+        courierCompany: latestShipment?.courierCompany ?? order.courierCompany,
+        trackingNo: latestShipment?.trackingNo ?? order.trackingNo,
+        shippedAt: latestShipment?.shippedAt ?? order.shippedAt,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
         items: itemList,
         images: fallbackImages,
         paymentImages,
+        shipments,
     };
 }
