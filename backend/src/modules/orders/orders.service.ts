@@ -722,8 +722,9 @@ export class OrdersService {
           orderBy: 'created_desc',
           statusMode: {
             type: 'eq',
-            values: [ORDER_STATUS.partial_shipped],
+            values: [ORDER_STATUS.pending_shipment],
           },
+          latestShipmentStatus: SHIPMENT_STATUS.partial_shipped,
           orderNo: query.orderNo,
           mobile: query.mobile,
           keyword,
@@ -1015,8 +1016,8 @@ export class OrdersService {
       statusMode:
         status === ORDER_STATUS.pending_shipment
           ? {
-              type: 'in',
-              values: [ORDER_STATUS.pending_shipment, ORDER_STATUS.partial_shipped],
+              type: 'eq',
+              values: [ORDER_STATUS.pending_shipment],
             }
           : {
               type: 'eq',
@@ -1126,7 +1127,7 @@ export class OrdersService {
       const shippedAt = new Date();
       const nextStatus = isFullyShipped
         ? ORDER_STATUS.shipped
-        : ORDER_STATUS.partial_shipped;
+        : ORDER_STATUS.pending_shipment;
       const shipmentStatus = isFullyShipped
         ? SHIPMENT_STATUS.shipped
         : SHIPMENT_STATUS.partial_shipped;
@@ -1199,14 +1200,29 @@ export class OrdersService {
         `,
       );
 
-      const refreshedOrder = await tx.order.findUniqueOrThrow({
-        where: { id },
-        include: {
-          items: true,
-        },
-      });
-
-      return (await this.attachOrderMedia([refreshedOrder]))[0];
+      return {
+        ...existingOrder,
+        status: nextStatus,
+        courierCompany: shipOrderDto.courierCompany,
+        trackingNo: shipOrderDto.trackingNo,
+        warehouseRemark: shipmentRemark,
+        shippedAt,
+        shipments: [
+          ...(existingOrder.shipments ?? []),
+          {
+            id: Date.now(),
+            sequenceNo: nextSequenceNo,
+            shipmentStatus,
+            courierCompany: shipOrderDto.courierCompany,
+            trackingNo: shipOrderDto.trackingNo,
+            shipmentRemark,
+            operatorId: currentUser.id,
+            shippedAt,
+            createdAt: shippedAt,
+            updatedAt: shippedAt,
+          },
+        ],
+      };
     });
 
     return {
@@ -1668,6 +1684,7 @@ export class OrdersService {
           type: 'in';
           values: string[];
         };
+    latestShipmentStatus?: string;
     orderNo?: string;
     mobile?: string;
     keyword?: string;
@@ -1729,6 +1746,22 @@ export class OrdersService {
 
     if (input.createdAtFilter?.lte) {
       conditions.push(Prisma.sql`o.created_at <= ${input.createdAtFilter.lte}`);
+    }
+
+    if (input.latestShipmentStatus) {
+      conditions.push(
+        Prisma.sql`EXISTS (
+          SELECT 1
+          FROM order_shipments os
+          WHERE os.order_id = o.id
+            AND os.shipment_status = ${input.latestShipmentStatus}
+            AND os.sequence_no = (
+              SELECT MAX(os2.sequence_no)
+              FROM order_shipments os2
+              WHERE os2.order_id = o.id
+            )
+        )`,
+      );
     }
 
     const whereSql =

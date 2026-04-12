@@ -494,8 +494,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 orderBy: 'created_desc',
                 statusMode: {
                     type: 'eq',
-                    values: [order_status_constants_1.ORDER_STATUS.partial_shipped],
+                    values: [order_status_constants_1.ORDER_STATUS.pending_shipment],
                 },
+                latestShipmentStatus: order_status_constants_1.SHIPMENT_STATUS.partial_shipped,
                 orderNo: query.orderNo,
                 mobile: query.mobile,
                 keyword,
@@ -759,8 +760,8 @@ let OrdersService = OrdersService_1 = class OrdersService {
             orderBy: status === order_status_constants_1.ORDER_STATUS.shipped ? 'shipped_desc' : 'created_asc',
             statusMode: status === order_status_constants_1.ORDER_STATUS.pending_shipment
                 ? {
-                    type: 'in',
-                    values: [order_status_constants_1.ORDER_STATUS.pending_shipment, order_status_constants_1.ORDER_STATUS.partial_shipped],
+                    type: 'eq',
+                    values: [order_status_constants_1.ORDER_STATUS.pending_shipment],
                 }
                 : {
                     type: 'eq',
@@ -858,7 +859,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
             const shippedAt = new Date();
             const nextStatus = isFullyShipped
                 ? order_status_constants_1.ORDER_STATUS.shipped
-                : order_status_constants_1.ORDER_STATUS.partial_shipped;
+                : order_status_constants_1.ORDER_STATUS.pending_shipment;
             const shipmentStatus = isFullyShipped
                 ? order_status_constants_1.SHIPMENT_STATUS.shipped
                 : order_status_constants_1.SHIPMENT_STATUS.partial_shipped;
@@ -919,13 +920,29 @@ let OrdersService = OrdersService_1 = class OrdersService {
             CURRENT_TIMESTAMP(3)
           )
         `);
-            const refreshedOrder = await tx.order.findUniqueOrThrow({
-                where: { id },
-                include: {
-                    items: true,
-                },
-            });
-            return (await this.attachOrderMedia([refreshedOrder]))[0];
+            return {
+                ...existingOrder,
+                status: nextStatus,
+                courierCompany: shipOrderDto.courierCompany,
+                trackingNo: shipOrderDto.trackingNo,
+                warehouseRemark: shipmentRemark,
+                shippedAt,
+                shipments: [
+                    ...(existingOrder.shipments ?? []),
+                    {
+                        id: Date.now(),
+                        sequenceNo: nextSequenceNo,
+                        shipmentStatus,
+                        courierCompany: shipOrderDto.courierCompany,
+                        trackingNo: shipOrderDto.trackingNo,
+                        shipmentRemark,
+                        operatorId: currentUser.id,
+                        shippedAt,
+                        createdAt: shippedAt,
+                        updatedAt: shippedAt,
+                    },
+                ],
+            };
         });
         return {
             success: true,
@@ -1275,6 +1292,19 @@ let OrdersService = OrdersService_1 = class OrdersService {
         }
         if (input.createdAtFilter?.lte) {
             conditions.push(client_1.Prisma.sql `o.created_at <= ${input.createdAtFilter.lte}`);
+        }
+        if (input.latestShipmentStatus) {
+            conditions.push(client_1.Prisma.sql `EXISTS (
+          SELECT 1
+          FROM order_shipments os
+          WHERE os.order_id = o.id
+            AND os.shipment_status = ${input.latestShipmentStatus}
+            AND os.sequence_no = (
+              SELECT MAX(os2.sequence_no)
+              FROM order_shipments os2
+              WHERE os2.order_id = o.id
+            )
+        )`);
         }
         const whereSql = conditions.length > 0
             ? client_1.Prisma.sql `WHERE ${client_1.Prisma.join(conditions, ' AND ')}`

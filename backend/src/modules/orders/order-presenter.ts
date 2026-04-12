@@ -5,6 +5,7 @@ import type {
   OrderStatusLog,
 } from '@prisma/client';
 import { toCurrencyNumber } from '../../common/utils/decimal.util';
+import { ORDER_STATUS } from './order-status.constants';
 
 export type PresentableUploadFile = {
   id: number;
@@ -141,6 +142,11 @@ export function presentOrderBase(
     (order.shipments ?? []) as PresentableOrderShipment[],
   );
   const latestShipment = shipments.at(-1) ?? null;
+  const resolvedStatus =
+    latestShipment?.shipmentStatus === 'partial_shipped' &&
+    order.status === ORDER_STATUS.pending_shipment
+      ? ORDER_STATUS.partial_shipped
+      : order.status;
 
   if (fallbackImages.length > 0 && itemList.every((item) => !item.images.length) && itemList[0]) {
     itemList[0] = {
@@ -152,7 +158,7 @@ export function presentOrderBase(
   return {
     id: order.id,
     orderNo: order.orderNo,
-    status: order.status,
+    status: resolvedStatus,
     receiverName: order.receiverName,
     receiverMobile: order.receiverMobile,
     receiverFullAddress: order.receiverAddress,

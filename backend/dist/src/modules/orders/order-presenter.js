@@ -6,6 +6,7 @@ exports.presentOrderLogs = presentOrderLogs;
 exports.presentOrderShipments = presentOrderShipments;
 exports.presentOrderBase = presentOrderBase;
 const decimal_util_1 = require("../../common/utils/decimal.util");
+const order_status_constants_1 = require("./order-status.constants");
 function resolveUploadFileUrl(image) {
     if (image.storageDriver === 'r2' && image.storageKey) {
         const publicBaseUrl = (process.env.UPLOAD_PUBLIC_BASE_URL ?? '').trim();
@@ -84,6 +85,10 @@ function presentOrderBase(order) {
     const paymentImages = presentOrderImages(order.images.filter((image) => image.bizType === 'order_payment_code_image'));
     const shipments = presentOrderShipments((order.shipments ?? []));
     const latestShipment = shipments.at(-1) ?? null;
+    const resolvedStatus = latestShipment?.shipmentStatus === 'partial_shipped' &&
+        order.status === order_status_constants_1.ORDER_STATUS.pending_shipment
+        ? order_status_constants_1.ORDER_STATUS.partial_shipped
+        : order.status;
     if (fallbackImages.length > 0 && itemList.every((item) => !item.images.length) && itemList[0]) {
         itemList[0] = {
             ...itemList[0],
@@ -93,7 +98,7 @@ function presentOrderBase(order) {
     return {
         id: order.id,
         orderNo: order.orderNo,
-        status: order.status,
+        status: resolvedStatus,
         receiverName: order.receiverName,
         receiverMobile: order.receiverMobile,
         receiverFullAddress: order.receiverAddress,
