@@ -1,4 +1,9 @@
-import { Order, OrderItem, OrderShipment, OrderStatusLog } from '@prisma/client';
+import type {
+  Order,
+  OrderItem,
+  OrderShipment,
+  OrderStatusLog,
+} from '@prisma/client';
 import { toCurrencyNumber } from '../../common/utils/decimal.util';
 
 export type PresentableUploadFile = {

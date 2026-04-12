@@ -10,16 +10,16 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ListOrdersQueryDto = void 0;
-const client_1 = require("@prisma/client");
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 const pagination_query_dto_1 = require("../../../common/dto/pagination-query.dto");
+const order_status_constants_1 = require("../order-status.constants");
 class ListOrdersQueryDto extends pagination_query_dto_1.PaginationQueryDto {
 }
 exports.ListOrdersQueryDto = ListOrdersQueryDto;
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(client_1.OrderStatus),
+    (0, class_validator_1.IsIn)(order_status_constants_1.ORDER_STATUS_VALUES),
     __metadata("design:type", String)
 ], ListOrdersQueryDto.prototype, "status", void 0);
 __decorate([

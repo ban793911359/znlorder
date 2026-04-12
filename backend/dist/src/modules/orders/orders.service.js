@@ -22,6 +22,7 @@ const order_presenter_1 = require("./order-presenter");
 const order_number_service_1 = require("./order-number.service");
 const upload_biz_types_1 = require("../uploads/upload-biz-types");
 const uploads_service_1 = require("../uploads/uploads.service");
+const order_status_constants_1 = require("./order-status.constants");
 let OrdersService = OrdersService_1 = class OrdersService {
     constructor(prisma, orderNumberService, configService, uploadsService) {
         this.prisma = prisma;
@@ -187,7 +188,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                         data: {
                             orderNo,
                             customerId: customer.id,
-                            status: client_1.OrderStatus.pending_shipment,
+                            status: order_status_constants_1.ORDER_STATUS.pending_shipment,
                             clientTokenHash: tokenHash,
                             clientLinkPath,
                             createdById: currentUser.id,
@@ -233,7 +234,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                         data: {
                             orderId: order.id,
                             fromStatus: null,
-                            toStatus: client_1.OrderStatus.pending_shipment,
+                            toStatus: order_status_constants_1.ORDER_STATUS.pending_shipment,
                             action: 'create_order',
                             operatorId: currentUser.id,
                             note: 'Order created by operator',
@@ -242,7 +243,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                     return {
                         orderId: order.id,
                         orderNo,
-                        status: client_1.OrderStatus.pending_shipment,
+                        status: order_status_constants_1.ORDER_STATUS.pending_shipment,
                         clientToken: rawToken,
                         clientLinkPath,
                         clientLink: this.buildClientLink(orderNo, rawToken),
@@ -284,10 +285,10 @@ let OrdersService = OrdersService_1 = class OrdersService {
         if (!existingOrder) {
             throw new common_1.NotFoundException('Order not found');
         }
-        if (existingOrder.status === client_1.OrderStatus.partial_shipped ||
-            existingOrder.status === client_1.OrderStatus.shipped ||
-            existingOrder.status === client_1.OrderStatus.completed ||
-            existingOrder.status === client_1.OrderStatus.cancelled) {
+        if (existingOrder.status === order_status_constants_1.ORDER_STATUS.partial_shipped ||
+            existingOrder.status === order_status_constants_1.ORDER_STATUS.shipped ||
+            existingOrder.status === order_status_constants_1.ORDER_STATUS.completed ||
+            existingOrder.status === order_status_constants_1.ORDER_STATUS.cancelled) {
             throw new common_1.BadRequestException('Current order can no longer be edited');
         }
         const mergedItems = updateOrderDto.items ??
@@ -574,9 +575,6 @@ let OrdersService = OrdersService_1 = class OrdersService {
             include: {
                 customer: true,
                 items: true,
-                shipments: {
-                    orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-                },
                 logs: {
                     orderBy: { createdAt: 'desc' },
                 },
@@ -620,9 +618,6 @@ let OrdersService = OrdersService_1 = class OrdersService {
             include: {
                 customer: true,
                 items: true,
-                shipments: {
-                    orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-                },
                 logs: {
                     orderBy: { createdAt: 'desc' },
                 },
@@ -642,26 +637,26 @@ let OrdersService = OrdersService_1 = class OrdersService {
         if (!existingOrder) {
             throw new common_1.NotFoundException('Order not found');
         }
-        if (existingOrder.status === client_1.OrderStatus.partial_shipped ||
-            existingOrder.status === client_1.OrderStatus.shipped ||
-            existingOrder.status === client_1.OrderStatus.completed) {
+        if (existingOrder.status === order_status_constants_1.ORDER_STATUS.partial_shipped ||
+            existingOrder.status === order_status_constants_1.ORDER_STATUS.shipped ||
+            existingOrder.status === order_status_constants_1.ORDER_STATUS.completed) {
             throw new common_1.BadRequestException('Shipped or completed orders cannot be cancelled');
         }
-        if (existingOrder.status === client_1.OrderStatus.cancelled) {
+        if (existingOrder.status === order_status_constants_1.ORDER_STATUS.cancelled) {
             throw new common_1.BadRequestException('Order is already cancelled');
         }
         const cancelledOrder = await this.prisma.$transaction(async (tx) => {
             await tx.order.update({
                 where: { id },
                 data: {
-                    status: client_1.OrderStatus.cancelled,
+                    status: order_status_constants_1.ORDER_STATUS.cancelled,
                 },
             });
             await tx.orderStatusLog.create({
                 data: {
                     orderId: id,
                     fromStatus: existingOrder.status,
-                    toStatus: client_1.OrderStatus.cancelled,
+                    toStatus: order_status_constants_1.ORDER_STATUS.cancelled,
                     action: 'cancel_order',
                     operatorId: currentUser.id,
                     note: cancelOrderDto.reason?.trim() || 'Order cancelled by operator',
@@ -710,7 +705,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
     async getPendingShipmentOrders(query) {
         return this.getWarehouseOrders({
             ...query,
-            status: client_1.OrderStatus.pending_shipment,
+            status: order_status_constants_1.ORDER_STATUS.pending_shipment,
         });
     }
     async getWarehouseOrders(query) {
@@ -718,18 +713,18 @@ let OrdersService = OrdersService_1 = class OrdersService {
         const pageSize = query.pageSize ?? 10;
         const skip = (page - 1) * pageSize;
         const warehouseStatuses = [
-            client_1.OrderStatus.pending_shipment,
-            client_1.OrderStatus.partial_shipped,
-            client_1.OrderStatus.shipped,
+            order_status_constants_1.ORDER_STATUS.pending_shipment,
+            order_status_constants_1.ORDER_STATUS.partial_shipped,
+            order_status_constants_1.ORDER_STATUS.shipped,
         ];
         const status = query.status && warehouseStatuses.includes(query.status)
             ? query.status
-            : client_1.OrderStatus.pending_shipment;
+            : order_status_constants_1.ORDER_STATUS.pending_shipment;
         const keyword = query.keyword?.trim();
         const where = {
-            status: status === client_1.OrderStatus.pending_shipment
+            status: status === order_status_constants_1.ORDER_STATUS.pending_shipment
                 ? {
-                    in: [client_1.OrderStatus.pending_shipment, client_1.OrderStatus.partial_shipped],
+                    in: [order_status_constants_1.ORDER_STATUS.pending_shipment, order_status_constants_1.ORDER_STATUS.partial_shipped],
                 }
                 : status,
             ...(query.orderNo ? { orderNo: { contains: query.orderNo } } : {}),
@@ -767,7 +762,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: status === client_1.OrderStatus.shipped
+                orderBy: status === order_status_constants_1.ORDER_STATUS.shipped
                     ? { shippedAt: 'desc' }
                     : { createdAt: 'asc' },
                 include: {
@@ -778,9 +773,6 @@ let OrdersService = OrdersService_1 = class OrdersService {
                         },
                     },
                     items: true,
-                    shipments: {
-                        orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-                    },
                 },
             }),
         ]);
@@ -828,9 +820,6 @@ let OrdersService = OrdersService_1 = class OrdersService {
             where: { id },
             include: {
                 items: true,
-                shipments: {
-                    orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-                },
             },
         });
         const existingOrder = existingOrderBase
@@ -839,8 +828,8 @@ let OrdersService = OrdersService_1 = class OrdersService {
         if (!existingOrder) {
             throw new common_1.NotFoundException('Order not found');
         }
-        if (existingOrder.status !== client_1.OrderStatus.pending_shipment &&
-            existingOrder.status !== client_1.OrderStatus.partial_shipped) {
+        if (existingOrder.status !== order_status_constants_1.ORDER_STATUS.pending_shipment &&
+            existingOrder.status !== order_status_constants_1.ORDER_STATUS.partial_shipped) {
             throw new common_1.BadRequestException('Only pending or partial shipment orders can be shipped');
         }
         const isPartialShipment = shipOrderDto.isPartialShipment === true;
@@ -855,11 +844,11 @@ let OrdersService = OrdersService_1 = class OrdersService {
         const updatedOrder = await this.prisma.$transaction(async (tx) => {
             const shippedAt = new Date();
             const nextStatus = isFullyShipped
-                ? client_1.OrderStatus.shipped
-                : client_1.OrderStatus.partial_shipped;
+                ? order_status_constants_1.ORDER_STATUS.shipped
+                : order_status_constants_1.ORDER_STATUS.partial_shipped;
             const shipmentStatus = isFullyShipped
-                ? client_1.ShipmentStatus.shipped
-                : client_1.ShipmentStatus.partial_shipped;
+                ? order_status_constants_1.SHIPMENT_STATUS.shipped
+                : order_status_constants_1.SHIPMENT_STATUS.partial_shipped;
             const nextSequenceNo = (existingOrder.shipments?.length ?? 0) + 1;
             const order = await tx.order.update({
                 where: { id },
@@ -872,9 +861,6 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 },
                 include: {
                     items: true,
-                    shipments: {
-                        orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-                    },
                 },
             });
             await tx.orderShipment.create({
@@ -905,9 +891,6 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 where: { id },
                 include: {
                     items: true,
-                    shipments: {
-                        orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-                    },
                 },
             });
             return (await this.attachOrderMedia([refreshedOrder]))[0];
@@ -931,18 +914,15 @@ let OrdersService = OrdersService_1 = class OrdersService {
                     },
                 },
                 items: true,
-                shipments: {
-                    orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-                },
             },
         });
         const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;
         if (!order) {
             throw new common_1.NotFoundException('Order not found');
         }
-        if (order.status !== client_1.OrderStatus.pending_shipment &&
-            order.status !== client_1.OrderStatus.partial_shipped &&
-            order.status !== client_1.OrderStatus.shipped) {
+        if (order.status !== order_status_constants_1.ORDER_STATUS.pending_shipment &&
+            order.status !== order_status_constants_1.ORDER_STATUS.partial_shipped &&
+            order.status !== order_status_constants_1.ORDER_STATUS.shipped) {
             throw new common_1.BadRequestException('Only pending, partial or shipped orders are available');
         }
         return {
@@ -959,9 +939,6 @@ let OrdersService = OrdersService_1 = class OrdersService {
             where: { orderNo },
             include: {
                 items: true,
-                shipments: {
-                    orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-                },
             },
         });
         const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;
@@ -1112,8 +1089,52 @@ let OrdersService = OrdersService_1 = class OrdersService {
         }
         return imageMap;
     }
+    async loadOrderShipmentsMap(orderIds) {
+        const uniqueOrderIds = [...new Set(orderIds)].filter((id) => Number.isFinite(id));
+        const shipmentMap = new Map();
+        if (uniqueOrderIds.length === 0) {
+            return shipmentMap;
+        }
+        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `
+        SELECT
+          id,
+          order_id,
+          sequence_no,
+          shipment_status,
+          courier_company,
+          tracking_no,
+          shipment_remark,
+          operator_id,
+          shipped_at,
+          created_at,
+          updated_at
+        FROM order_shipments
+        WHERE order_id IN (${client_1.Prisma.join(uniqueOrderIds)})
+        ORDER BY order_id ASC, sequence_no ASC, shipped_at ASC
+      `);
+        for (const row of rows) {
+            const list = shipmentMap.get(row.order_id) ?? [];
+            list.push({
+                id: row.id,
+                sequenceNo: row.sequence_no,
+                shipmentStatus: row.shipment_status === order_status_constants_1.SHIPMENT_STATUS.partial_shipped
+                    ? order_status_constants_1.SHIPMENT_STATUS.partial_shipped
+                    : order_status_constants_1.SHIPMENT_STATUS.shipped,
+                courierCompany: row.courier_company,
+                trackingNo: row.tracking_no,
+                shipmentRemark: row.shipment_remark,
+                operatorId: row.operator_id,
+                shippedAt: row.shipped_at,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+            });
+            shipmentMap.set(row.order_id, list);
+        }
+        return shipmentMap;
+    }
     async attachOrderMedia(orders) {
         const imageMap = await this.loadOrderImagesMap(orders.map((order) => order.id));
+        const shipmentMap = await this.loadOrderShipmentsMap(orders.map((order) => order.id));
         return orders.map((order) => {
             const orderImages = imageMap.get(order.id) ?? [];
             const itemImageMap = new Map();
@@ -1128,6 +1149,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
             return {
                 ...order,
                 images: orderImages,
+                shipments: shipmentMap.get(order.id) ?? [],
                 items: order.items.map((item) => ({
                     ...item,
                     images: itemImageMap.get(item.id) ?? [],

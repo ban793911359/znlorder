@@ -12,10 +12,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatsService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-const client_1 = require("@prisma/client");
 const date_range_util_1 = require("../../common/utils/date-range.util");
 const decimal_util_1 = require("../../common/utils/decimal.util");
 const prisma_service_1 = require("../../database/prisma/prisma.service");
+const order_status_constants_1 = require("../orders/order-status.constants");
 let StatsService = class StatsService {
     constructor(prisma, configService) {
         this.prisma = prisma;
@@ -65,12 +65,12 @@ let StatsService = class StatsService {
             success: true,
             data: {
                 totalOrders,
-                draftCount: statusMap.get(client_1.OrderStatus.draft) ?? 0,
-                pendingShipmentCount: (statusMap.get(client_1.OrderStatus.pending_shipment) ?? 0) +
-                    (statusMap.get(client_1.OrderStatus.partial_shipped) ?? 0),
-                shippedCount: statusMap.get(client_1.OrderStatus.shipped) ?? 0,
-                completedCount: statusMap.get(client_1.OrderStatus.completed) ?? 0,
-                cancelledCount: statusMap.get(client_1.OrderStatus.cancelled) ?? 0,
+                draftCount: statusMap.get(order_status_constants_1.ORDER_STATUS.draft) ?? 0,
+                pendingShipmentCount: (statusMap.get(order_status_constants_1.ORDER_STATUS.pending_shipment) ?? 0) +
+                    (statusMap.get(order_status_constants_1.ORDER_STATUS.partial_shipped) ?? 0),
+                shippedCount: statusMap.get(order_status_constants_1.ORDER_STATUS.shipped) ?? 0,
+                completedCount: statusMap.get(order_status_constants_1.ORDER_STATUS.completed) ?? 0,
+                cancelledCount: statusMap.get(order_status_constants_1.ORDER_STATUS.cancelled) ?? 0,
                 totalPayableAmount: (0, decimal_util_1.toCurrencyNumber)(sumResult._sum.payableAmount ?? 0),
             },
         };

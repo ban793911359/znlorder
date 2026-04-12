@@ -1,18 +1,21 @@
-import { OrderStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import {
+  ORDER_STATUS_VALUES,
+  type OrderStatusValue,
+} from '../order-status.constants';
 
 export class ListOrdersQueryDto extends PaginationQueryDto {
   @IsOptional()
-  @IsEnum(OrderStatus)
-  status?: OrderStatus;
+  @IsIn(ORDER_STATUS_VALUES)
+  status?: OrderStatusValue;
 
   @IsOptional()
   @IsString()

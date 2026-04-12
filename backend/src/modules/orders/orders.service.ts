@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus, Prisma, ShipmentStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { JwtUser } from '../../common/interfaces/jwt-user.interface';
 import {
   almostEqualMoney,
@@ -38,6 +38,11 @@ import {
   type UploadImageBizType,
 } from '../uploads/upload-biz-types';
 import { UploadsService } from '../uploads/uploads.service';
+import {
+  ORDER_STATUS,
+  SHIPMENT_STATUS,
+  type OrderStatusValue,
+} from './order-status.constants';
 
 type OrderDraftRow = {
   id: number | bigint;
@@ -68,6 +73,20 @@ type OrderUploadFileRow = {
   file_url: string;
   expires_at: Date;
   deleted_at: Date | null;
+};
+
+type OrderShipmentRow = {
+  id: number;
+  order_id: number;
+  sequence_no: number;
+  shipment_status: string;
+  courier_company: string;
+  tracking_no: string;
+  shipment_remark: string | null;
+  operator_id: number | null;
+  shipped_at: Date;
+  created_at: Date;
+  updated_at: Date;
 };
 
 @Injectable()
@@ -245,7 +264,7 @@ export class OrdersService {
       | {
           orderId: number;
           orderNo: string;
-          status: OrderStatus;
+          status: OrderStatusValue;
           clientToken: string;
           clientLinkPath: string;
           clientLink: string;
@@ -295,7 +314,7 @@ export class OrdersService {
             data: {
               orderNo,
               customerId: customer.id,
-              status: OrderStatus.pending_shipment,
+              status: ORDER_STATUS.pending_shipment,
               clientTokenHash: tokenHash,
               clientLinkPath,
               createdById: currentUser.id,
@@ -345,7 +364,7 @@ export class OrdersService {
             data: {
               orderId: order.id,
               fromStatus: null,
-              toStatus: OrderStatus.pending_shipment,
+              toStatus: ORDER_STATUS.pending_shipment,
               action: 'create_order',
               operatorId: currentUser.id,
               note: 'Order created by operator',
@@ -355,7 +374,7 @@ export class OrdersService {
           return {
             orderId: order.id,
             orderNo,
-            status: OrderStatus.pending_shipment,
+            status: ORDER_STATUS.pending_shipment,
             clientToken: rawToken,
             clientLinkPath,
             clientLink: this.buildClientLink(orderNo, rawToken),
@@ -415,10 +434,10 @@ export class OrdersService {
     }
 
     if (
-      existingOrder.status === OrderStatus.partial_shipped ||
-      existingOrder.status === OrderStatus.shipped ||
-      existingOrder.status === OrderStatus.completed ||
-      existingOrder.status === OrderStatus.cancelled
+      existingOrder.status === ORDER_STATUS.partial_shipped ||
+      existingOrder.status === ORDER_STATUS.shipped ||
+      existingOrder.status === ORDER_STATUS.completed ||
+      existingOrder.status === ORDER_STATUS.cancelled
     ) {
       throw new BadRequestException('Current order can no longer be edited');
     }
@@ -778,9 +797,6 @@ export class OrdersService {
       include: {
         customer: true,
         items: true,
-        shipments: {
-          orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-        },
         logs: {
           orderBy: { createdAt: 'desc' },
         },
@@ -831,9 +847,6 @@ export class OrdersService {
       include: {
         customer: true,
         items: true,
-        shipments: {
-          orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-        },
         logs: {
           orderBy: { createdAt: 'desc' },
         },
@@ -856,14 +869,14 @@ export class OrdersService {
     }
 
     if (
-      existingOrder.status === OrderStatus.partial_shipped ||
-      existingOrder.status === OrderStatus.shipped ||
-      existingOrder.status === OrderStatus.completed
+      existingOrder.status === ORDER_STATUS.partial_shipped ||
+      existingOrder.status === ORDER_STATUS.shipped ||
+      existingOrder.status === ORDER_STATUS.completed
     ) {
       throw new BadRequestException('Shipped or completed orders cannot be cancelled');
     }
 
-    if (existingOrder.status === OrderStatus.cancelled) {
+    if (existingOrder.status === ORDER_STATUS.cancelled) {
       throw new BadRequestException('Order is already cancelled');
     }
 
@@ -871,7 +884,7 @@ export class OrdersService {
       await tx.order.update({
         where: { id },
         data: {
-          status: OrderStatus.cancelled,
+          status: ORDER_STATUS.cancelled,
         },
       });
 
@@ -879,7 +892,7 @@ export class OrdersService {
         data: {
           orderId: id,
           fromStatus: existingOrder.status,
-          toStatus: OrderStatus.cancelled,
+          toStatus: ORDER_STATUS.cancelled,
           action: 'cancel_order',
           operatorId: currentUser.id,
           note: cancelOrderDto.reason?.trim() || 'Order cancelled by operator',
@@ -932,7 +945,7 @@ export class OrdersService {
   async getPendingShipmentOrders(query: ListOrdersQueryDto) {
     return this.getWarehouseOrders({
       ...query,
-      status: OrderStatus.pending_shipment,
+      status: ORDER_STATUS.pending_shipment,
     });
   }
 
@@ -940,22 +953,22 @@ export class OrdersService {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 10;
     const skip = (page - 1) * pageSize;
-    const warehouseStatuses: OrderStatus[] = [
-      OrderStatus.pending_shipment,
-      OrderStatus.partial_shipped,
-      OrderStatus.shipped,
+    const warehouseStatuses: OrderStatusValue[] = [
+      ORDER_STATUS.pending_shipment,
+      ORDER_STATUS.partial_shipped,
+      ORDER_STATUS.shipped,
     ];
     const status =
       query.status && warehouseStatuses.includes(query.status)
         ? query.status
-        : OrderStatus.pending_shipment;
+        : ORDER_STATUS.pending_shipment;
 
     const keyword = query.keyword?.trim();
     const where: Prisma.OrderWhereInput = {
       status:
-        status === OrderStatus.pending_shipment
+        status === ORDER_STATUS.pending_shipment
           ? {
-              in: [OrderStatus.pending_shipment, OrderStatus.partial_shipped],
+              in: [ORDER_STATUS.pending_shipment, ORDER_STATUS.partial_shipped],
             }
           : status,
       ...(query.orderNo ? { orderNo: { contains: query.orderNo } } : {}),
@@ -995,7 +1008,7 @@ export class OrdersService {
         skip,
         take: pageSize,
         orderBy:
-          status === OrderStatus.shipped
+          status === ORDER_STATUS.shipped
             ? { shippedAt: 'desc' }
             : { createdAt: 'asc' },
         include: {
@@ -1006,9 +1019,6 @@ export class OrdersService {
             },
           },
           items: true,
-          shipments: {
-            orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-          },
         },
       }),
     ]);
@@ -1059,9 +1069,6 @@ export class OrdersService {
       where: { id },
       include: {
         items: true,
-        shipments: {
-          orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-        },
       },
     });
     const existingOrder = existingOrderBase
@@ -1073,8 +1080,8 @@ export class OrdersService {
     }
 
     if (
-      existingOrder.status !== OrderStatus.pending_shipment &&
-      existingOrder.status !== OrderStatus.partial_shipped
+      existingOrder.status !== ORDER_STATUS.pending_shipment &&
+      existingOrder.status !== ORDER_STATUS.partial_shipped
     ) {
       throw new BadRequestException('Only pending or partial shipment orders can be shipped');
     }
@@ -1094,11 +1101,11 @@ export class OrdersService {
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
       const shippedAt = new Date();
       const nextStatus = isFullyShipped
-        ? OrderStatus.shipped
-        : OrderStatus.partial_shipped;
+        ? ORDER_STATUS.shipped
+        : ORDER_STATUS.partial_shipped;
       const shipmentStatus = isFullyShipped
-        ? ShipmentStatus.shipped
-        : ShipmentStatus.partial_shipped;
+        ? SHIPMENT_STATUS.shipped
+        : SHIPMENT_STATUS.partial_shipped;
       const nextSequenceNo = (existingOrder.shipments?.length ?? 0) + 1;
 
       const order = await tx.order.update({
@@ -1112,9 +1119,6 @@ export class OrdersService {
         },
         include: {
           items: true,
-          shipments: {
-            orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-          },
         },
       });
 
@@ -1148,9 +1152,6 @@ export class OrdersService {
         where: { id },
         include: {
           items: true,
-          shipments: {
-            orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-          },
         },
       });
 
@@ -1177,9 +1178,6 @@ export class OrdersService {
           },
         },
         items: true,
-        shipments: {
-          orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-        },
       },
     });
     const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;
@@ -1189,9 +1187,9 @@ export class OrdersService {
     }
 
     if (
-      order.status !== OrderStatus.pending_shipment &&
-      order.status !== OrderStatus.partial_shipped &&
-      order.status !== OrderStatus.shipped
+      order.status !== ORDER_STATUS.pending_shipment &&
+      order.status !== ORDER_STATUS.partial_shipped &&
+      order.status !== ORDER_STATUS.shipped
     ) {
       throw new BadRequestException('Only pending, partial or shipped orders are available');
     }
@@ -1215,9 +1213,6 @@ export class OrdersService {
       where: { orderNo },
       include: {
         items: true,
-        shipments: {
-          orderBy: [{ sequenceNo: 'asc' }, { shippedAt: 'asc' }],
-        },
       },
     });
     const order = orderBase ? (await this.attachOrderMedia([orderBase]))[0] : null;
@@ -1449,6 +1444,73 @@ export class OrdersService {
     return imageMap;
   }
 
+  private async loadOrderShipmentsMap(orderIds: number[]) {
+    const uniqueOrderIds = [...new Set(orderIds)].filter((id) =>
+      Number.isFinite(id),
+    );
+    const shipmentMap = new Map<
+      number,
+      Array<{
+        id: number;
+        sequenceNo: number;
+        shipmentStatus: 'partial_shipped' | 'shipped';
+        courierCompany: string;
+        trackingNo: string;
+        shipmentRemark: string | null;
+        operatorId: number | null;
+        shippedAt: Date;
+        createdAt: Date;
+        updatedAt: Date;
+      }>
+    >();
+
+    if (uniqueOrderIds.length === 0) {
+      return shipmentMap;
+    }
+
+    const rows = await this.prisma.$queryRaw<OrderShipmentRow[]>(
+      Prisma.sql`
+        SELECT
+          id,
+          order_id,
+          sequence_no,
+          shipment_status,
+          courier_company,
+          tracking_no,
+          shipment_remark,
+          operator_id,
+          shipped_at,
+          created_at,
+          updated_at
+        FROM order_shipments
+        WHERE order_id IN (${Prisma.join(uniqueOrderIds)})
+        ORDER BY order_id ASC, sequence_no ASC, shipped_at ASC
+      `,
+    );
+
+    for (const row of rows) {
+      const list = shipmentMap.get(row.order_id) ?? [];
+      list.push({
+        id: row.id,
+        sequenceNo: row.sequence_no,
+        shipmentStatus:
+          row.shipment_status === SHIPMENT_STATUS.partial_shipped
+            ? SHIPMENT_STATUS.partial_shipped
+            : SHIPMENT_STATUS.shipped,
+        courierCompany: row.courier_company,
+        trackingNo: row.tracking_no,
+        shipmentRemark: row.shipment_remark,
+        operatorId: row.operator_id,
+        shippedAt: row.shipped_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      });
+      shipmentMap.set(row.order_id, list);
+    }
+
+    return shipmentMap;
+  }
+
   private async attachOrderMedia<
     T extends {
       id: number;
@@ -1458,6 +1520,9 @@ export class OrdersService {
     },
   >(orders: T[]) {
     const imageMap = await this.loadOrderImagesMap(orders.map((order) => order.id));
+    const shipmentMap = await this.loadOrderShipmentsMap(
+      orders.map((order) => order.id),
+    );
 
     return orders.map((order) => {
       const orderImages = imageMap.get(order.id) ?? [];
@@ -1476,6 +1541,7 @@ export class OrdersService {
       return {
         ...order,
         images: orderImages,
+        shipments: shipmentMap.get(order.id) ?? [],
         items: order.items.map((item) => ({
           ...item,
           images: itemImageMap.get(item.id) ?? [],
