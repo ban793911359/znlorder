@@ -486,52 +486,83 @@ let OrdersService = OrdersService_1 = class OrdersService {
             createdAtFilter = (0, date_range_util_1.getDateRange)(timezone, query.dateFrom, query.dateTo);
         }
         const keyword = query.keyword?.trim();
-        const where = {
-            ...(query.status ? { status: query.status } : {}),
-            ...(query.orderNo ? { orderNo: { contains: query.orderNo } } : {}),
-            ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
-            ...(query.mobile
-                ? {
-                    OR: [
-                        { receiverMobile: { contains: query.mobile } },
-                        { customer: { is: { mobile: { contains: query.mobile } } } },
-                    ],
-                }
-                : {}),
-            ...(keyword
-                ? {
-                    AND: [
-                        {
+        const useRawStatusQuery = query.status === order_status_constants_1.ORDER_STATUS.partial_shipped;
+        const { total, orderIds } = useRawStatusQuery
+            ? await this.queryOrderIdsWithRawFilters({
+                page,
+                pageSize,
+                orderBy: 'created_desc',
+                statusMode: {
+                    type: 'eq',
+                    values: [order_status_constants_1.ORDER_STATUS.partial_shipped],
+                },
+                orderNo: query.orderNo,
+                mobile: query.mobile,
+                keyword,
+                createdAtFilter,
+            })
+            : await (async () => {
+                const where = {
+                    ...(query.status ? { status: query.status } : {}),
+                    ...(query.orderNo ? { orderNo: { contains: query.orderNo } } : {}),
+                    ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+                    ...(query.mobile
+                        ? {
                             OR: [
-                                { orderNo: { contains: keyword } },
-                                { receiverName: { contains: keyword } },
-                                { receiverMobile: { contains: keyword } },
-                                { receiverAddress: { contains: keyword } },
-                                { customer: { is: { name: { contains: keyword } } } },
-                                { customer: { is: { mobile: { contains: keyword } } } },
+                                { receiverMobile: { contains: query.mobile } },
+                                { customer: { is: { mobile: { contains: query.mobile } } } },
+                            ],
+                        }
+                        : {}),
+                    ...(keyword
+                        ? {
+                            AND: [
                                 {
-                                    items: {
-                                        some: {
-                                            OR: [
-                                                { productName: { contains: keyword } },
-                                                { productSpec: { contains: keyword } },
-                                            ],
+                                    OR: [
+                                        { orderNo: { contains: keyword } },
+                                        { receiverName: { contains: keyword } },
+                                        { receiverMobile: { contains: keyword } },
+                                        { receiverAddress: { contains: keyword } },
+                                        { customer: { is: { name: { contains: keyword } } } },
+                                        { customer: { is: { mobile: { contains: keyword } } } },
+                                        {
+                                            items: {
+                                                some: {
+                                                    OR: [
+                                                        { productName: { contains: keyword } },
+                                                        { productSpec: { contains: keyword } },
+                                                    ],
+                                                },
+                                            },
                                         },
-                                    },
+                                    ],
                                 },
                             ],
-                        },
-                    ],
-                }
-                : {}),
-        };
-        const [total, orders] = await Promise.all([
-            this.prisma.order.count({ where }),
-            this.prisma.order.findMany({
-                where,
-                skip,
-                take: pageSize,
-                orderBy: { createdAt: 'desc' },
+                        }
+                        : {}),
+                };
+                const [count, records] = await Promise.all([
+                    this.prisma.order.count({ where }),
+                    this.prisma.order.findMany({
+                        where,
+                        skip,
+                        take: pageSize,
+                        orderBy: { createdAt: 'desc' },
+                        select: { id: true },
+                    }),
+                ]);
+                return {
+                    total: count,
+                    orderIds: records.map((record) => record.id),
+                };
+            })();
+        const orders = orderIds.length
+            ? await this.prisma.order.findMany({
+                where: {
+                    id: {
+                        in: orderIds,
+                    },
+                },
                 include: {
                     customer: {
                         select: {
@@ -550,9 +581,10 @@ let OrdersService = OrdersService_1 = class OrdersService {
                         },
                     },
                 },
-            }),
-        ]);
-        const ordersWithMedia = await this.attachOrderMedia(orders);
+            })
+            : [];
+        const orderedOrders = this.sortRecordsByIds(orders, orderIds);
+        const ordersWithMedia = await this.attachOrderMedia(orderedOrders);
         return {
             success: true,
             data: {
@@ -721,50 +753,30 @@ let OrdersService = OrdersService_1 = class OrdersService {
             ? query.status
             : order_status_constants_1.ORDER_STATUS.pending_shipment;
         const keyword = query.keyword?.trim();
-        const where = {
-            status: status === order_status_constants_1.ORDER_STATUS.pending_shipment
+        const { total, orderIds } = await this.queryOrderIdsWithRawFilters({
+            page,
+            pageSize,
+            orderBy: status === order_status_constants_1.ORDER_STATUS.shipped ? 'shipped_desc' : 'created_asc',
+            statusMode: status === order_status_constants_1.ORDER_STATUS.pending_shipment
                 ? {
-                    in: [order_status_constants_1.ORDER_STATUS.pending_shipment, order_status_constants_1.ORDER_STATUS.partial_shipped],
+                    type: 'in',
+                    values: [order_status_constants_1.ORDER_STATUS.pending_shipment, order_status_constants_1.ORDER_STATUS.partial_shipped],
                 }
-                : status,
-            ...(query.orderNo ? { orderNo: { contains: query.orderNo } } : {}),
-            ...(query.mobile ? { receiverMobile: { contains: query.mobile } } : {}),
-            ...(keyword
-                ? {
-                    AND: [
-                        {
-                            OR: [
-                                { orderNo: { contains: keyword } },
-                                { receiverName: { contains: keyword } },
-                                { receiverMobile: { contains: keyword } },
-                                { receiverAddress: { contains: keyword } },
-                                { customer: { is: { name: { contains: keyword } } } },
-                                { customer: { is: { mobile: { contains: keyword } } } },
-                                {
-                                    items: {
-                                        some: {
-                                            OR: [
-                                                { productName: { contains: keyword } },
-                                                { productSpec: { contains: keyword } },
-                                            ],
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                }
-                : {}),
-        };
-        const [total, orders] = await Promise.all([
-            this.prisma.order.count({ where }),
-            this.prisma.order.findMany({
-                where,
-                skip,
-                take: pageSize,
-                orderBy: status === order_status_constants_1.ORDER_STATUS.shipped
-                    ? { shippedAt: 'desc' }
-                    : { createdAt: 'asc' },
+                : {
+                    type: 'eq',
+                    values: [status],
+                },
+            orderNo: query.orderNo,
+            mobile: query.mobile,
+            keyword,
+        });
+        const orders = orderIds.length
+            ? await this.prisma.order.findMany({
+                where: {
+                    id: {
+                        in: orderIds,
+                    },
+                },
                 include: {
                     customer: {
                         select: {
@@ -774,9 +786,10 @@ let OrdersService = OrdersService_1 = class OrdersService {
                     },
                     items: true,
                 },
-            }),
-        ]);
-        const ordersWithMedia = await this.attachOrderMedia(orders);
+            })
+            : [];
+        const orderedOrders = this.sortRecordsByIds(orders, orderIds);
+        const ordersWithMedia = await this.attachOrderMedia(orderedOrders);
         return {
             success: true,
             data: {
@@ -1198,6 +1211,85 @@ let OrdersService = OrdersService_1 = class OrdersService {
         WHERE id IN (${client_1.Prisma.join(uniqueIds)})
           AND deleted_at IS NULL
       `);
+    }
+    async queryOrderIdsWithRawFilters(input) {
+        const skip = (input.page - 1) * input.pageSize;
+        const conditions = [];
+        if (input.statusMode.type === 'eq') {
+            conditions.push(client_1.Prisma.sql `o.status = ${input.statusMode.values[0]}`);
+        }
+        else {
+            conditions.push(client_1.Prisma.sql `o.status IN (${client_1.Prisma.join(input.statusMode.values)})`);
+        }
+        if (input.orderNo?.trim()) {
+            conditions.push(client_1.Prisma.sql `o.order_no LIKE CONCAT('%', ${input.orderNo.trim()}, '%')`);
+        }
+        if (input.mobile?.trim()) {
+            const mobile = input.mobile.trim();
+            conditions.push(client_1.Prisma.sql `(
+          o.receiver_mobile LIKE CONCAT('%', ${mobile}, '%')
+          OR c.mobile LIKE CONCAT('%', ${mobile}, '%')
+        )`);
+        }
+        if (input.keyword?.trim()) {
+            const keyword = input.keyword.trim();
+            conditions.push(client_1.Prisma.sql `(
+          o.order_no LIKE CONCAT('%', ${keyword}, '%')
+          OR o.receiver_name LIKE CONCAT('%', ${keyword}, '%')
+          OR o.receiver_mobile LIKE CONCAT('%', ${keyword}, '%')
+          OR o.receiver_address LIKE CONCAT('%', ${keyword}, '%')
+          OR c.name LIKE CONCAT('%', ${keyword}, '%')
+          OR c.mobile LIKE CONCAT('%', ${keyword}, '%')
+          OR EXISTS (
+            SELECT 1
+            FROM order_items oi
+            WHERE oi.order_id = o.id
+              AND (
+                oi.product_name LIKE CONCAT('%', ${keyword}, '%')
+                OR oi.product_spec LIKE CONCAT('%', ${keyword}, '%')
+              )
+          )
+        )`);
+        }
+        if (input.createdAtFilter?.gte) {
+            conditions.push(client_1.Prisma.sql `o.created_at >= ${input.createdAtFilter.gte}`);
+        }
+        if (input.createdAtFilter?.lte) {
+            conditions.push(client_1.Prisma.sql `o.created_at <= ${input.createdAtFilter.lte}`);
+        }
+        const whereSql = conditions.length > 0
+            ? client_1.Prisma.sql `WHERE ${client_1.Prisma.join(conditions, ' AND ')}`
+            : client_1.Prisma.empty;
+        const orderBySql = input.orderBy === 'created_asc'
+            ? client_1.Prisma.sql `ORDER BY o.created_at ASC`
+            : input.orderBy === 'shipped_desc'
+                ? client_1.Prisma.sql `ORDER BY o.shipped_at DESC, o.updated_at DESC`
+                : client_1.Prisma.sql `ORDER BY o.created_at DESC`;
+        const [countRows, idRows] = await Promise.all([
+            this.prisma.$queryRaw(client_1.Prisma.sql `
+          SELECT COUNT(DISTINCT o.id) AS total
+          FROM orders o
+          LEFT JOIN customers c ON c.id = o.customer_id
+          ${whereSql}
+        `),
+            this.prisma.$queryRaw(client_1.Prisma.sql `
+          SELECT o.id
+          FROM orders o
+          LEFT JOIN customers c ON c.id = o.customer_id
+          ${whereSql}
+          ${orderBySql}
+          LIMIT ${input.pageSize} OFFSET ${skip}
+        `),
+        ]);
+        return {
+            total: Number(countRows[0]?.total ?? 0),
+            orderIds: idRows.map((row) => row.id),
+        };
+    }
+    sortRecordsByIds(records, ids) {
+        const orderIndex = new Map(ids.map((id, index) => [id, index]));
+        return [...records].sort((left, right) => (orderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+            (orderIndex.get(right.id) ?? Number.MAX_SAFE_INTEGER));
     }
     extractWarehouseRemark(operatorRemark) {
         if (!operatorRemark) {

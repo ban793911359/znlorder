@@ -89,6 +89,14 @@ type OrderShipmentRow = {
   updated_at: Date;
 };
 
+type OrderIdRow = {
+  id: number;
+};
+
+type CountRow = {
+  total: number | bigint;
+};
+
 @Injectable()
 export class OrdersService {
   private static readonly ORDER_NO_RETRY_TIMES = 8;
@@ -705,74 +713,109 @@ export class OrdersService {
     }
 
     const keyword = query.keyword?.trim();
-    const where: Prisma.OrderWhereInput = {
-      ...(query.status ? { status: query.status } : {}),
-      ...(query.orderNo ? { orderNo: { contains: query.orderNo } } : {}),
-      ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
-      ...(query.mobile
-        ? {
-            OR: [
-              { receiverMobile: { contains: query.mobile } },
-              { customer: { is: { mobile: { contains: query.mobile } } } },
-            ],
-          }
-        : {}),
-      ...(keyword
-        ? {
-            AND: [
-              {
-                OR: [
-                  { orderNo: { contains: keyword } },
-                  { receiverName: { contains: keyword } },
-                  { receiverMobile: { contains: keyword } },
-                  { receiverAddress: { contains: keyword } },
-                  { customer: { is: { name: { contains: keyword } } } },
-                  { customer: { is: { mobile: { contains: keyword } } } },
-                  {
-                    items: {
-                      some: {
-                        OR: [
-                          { productName: { contains: keyword } },
-                          { productSpec: { contains: keyword } },
-                        ],
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }
-        : {}),
-    };
+    const useRawStatusQuery = query.status === ORDER_STATUS.partial_shipped;
 
-    const [total, orders] = await Promise.all([
-      this.prisma.order.count({ where }),
-      this.prisma.order.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              mobile: true,
+    const { total, orderIds } = useRawStatusQuery
+      ? await this.queryOrderIdsWithRawFilters({
+          page,
+          pageSize,
+          orderBy: 'created_desc',
+          statusMode: {
+            type: 'eq',
+            values: [ORDER_STATUS.partial_shipped],
+          },
+          orderNo: query.orderNo,
+          mobile: query.mobile,
+          keyword,
+          createdAtFilter,
+        })
+      : await (async () => {
+          const where: Prisma.OrderWhereInput = {
+            ...(query.status ? { status: query.status } : {}),
+            ...(query.orderNo ? { orderNo: { contains: query.orderNo } } : {}),
+            ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+            ...(query.mobile
+              ? {
+                  OR: [
+                    { receiverMobile: { contains: query.mobile } },
+                    { customer: { is: { mobile: { contains: query.mobile } } } },
+                  ],
+                }
+              : {}),
+            ...(keyword
+              ? {
+                  AND: [
+                    {
+                      OR: [
+                        { orderNo: { contains: keyword } },
+                        { receiverName: { contains: keyword } },
+                        { receiverMobile: { contains: keyword } },
+                        { receiverAddress: { contains: keyword } },
+                        { customer: { is: { name: { contains: keyword } } } },
+                        { customer: { is: { mobile: { contains: keyword } } } },
+                        {
+                          items: {
+                            some: {
+                              OR: [
+                                { productName: { contains: keyword } },
+                                { productSpec: { contains: keyword } },
+                              ],
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                }
+              : {}),
+          };
+
+          const [count, records] = await Promise.all([
+            this.prisma.order.count({ where }),
+            this.prisma.order.findMany({
+              where,
+              skip,
+              take: pageSize,
+              orderBy: { createdAt: 'desc' },
+              select: { id: true },
+            }),
+          ]);
+
+          return {
+            total: count,
+            orderIds: records.map((record) => record.id),
+          };
+        })();
+
+    const orders = orderIds.length
+      ? await this.prisma.order.findMany({
+          where: {
+            id: {
+              in: orderIds,
             },
           },
-          items: true,
-          createdBy: {
-            select: {
-              id: true,
-              username: true,
-              displayName: true,
-              role: true,
+          include: {
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                mobile: true,
+              },
+            },
+            items: true,
+            createdBy: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+                role: true,
+              },
             },
           },
-        },
-      }),
-    ]);
-    const ordersWithMedia = await this.attachOrderMedia(orders);
+        })
+      : [];
+    const orderedOrders = this.sortRecordsByIds(orders, orderIds);
+    const ordersWithMedia = await this.attachOrderMedia(orderedOrders);
 
     return {
       success: true,
@@ -964,65 +1007,46 @@ export class OrdersService {
         : ORDER_STATUS.pending_shipment;
 
     const keyword = query.keyword?.trim();
-    const where: Prisma.OrderWhereInput = {
-      status:
+    const { total, orderIds } = await this.queryOrderIdsWithRawFilters({
+      page,
+      pageSize,
+      orderBy:
+        status === ORDER_STATUS.shipped ? 'shipped_desc' : 'created_asc',
+      statusMode:
         status === ORDER_STATUS.pending_shipment
           ? {
-              in: [ORDER_STATUS.pending_shipment, ORDER_STATUS.partial_shipped],
+              type: 'in',
+              values: [ORDER_STATUS.pending_shipment, ORDER_STATUS.partial_shipped],
             }
-          : status,
-      ...(query.orderNo ? { orderNo: { contains: query.orderNo } } : {}),
-      ...(query.mobile ? { receiverMobile: { contains: query.mobile } } : {}),
-      ...(keyword
-        ? {
-            AND: [
-              {
-                OR: [
-                  { orderNo: { contains: keyword } },
-                  { receiverName: { contains: keyword } },
-                  { receiverMobile: { contains: keyword } },
-                  { receiverAddress: { contains: keyword } },
-                  { customer: { is: { name: { contains: keyword } } } },
-                  { customer: { is: { mobile: { contains: keyword } } } },
-                  {
-                    items: {
-                      some: {
-                        OR: [
-                          { productName: { contains: keyword } },
-                          { productSpec: { contains: keyword } },
-                        ],
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }
-        : {}),
-    };
+          : {
+              type: 'eq',
+              values: [status],
+            },
+      orderNo: query.orderNo,
+      mobile: query.mobile,
+      keyword,
+    });
 
-    const [total, orders] = await Promise.all([
-      this.prisma.order.count({ where }),
-      this.prisma.order.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy:
-          status === ORDER_STATUS.shipped
-            ? { shippedAt: 'desc' }
-            : { createdAt: 'asc' },
-        include: {
-          customer: {
-            select: {
-              name: true,
-              mobile: true,
+    const orders = orderIds.length
+      ? await this.prisma.order.findMany({
+          where: {
+            id: {
+              in: orderIds,
             },
           },
-          items: true,
-        },
-      }),
-    ]);
-    const ordersWithMedia = await this.attachOrderMedia(orders);
+          include: {
+            customer: {
+              select: {
+                name: true,
+                mobile: true,
+              },
+            },
+            items: true,
+          },
+        })
+      : [];
+    const orderedOrders = this.sortRecordsByIds(orders, orderIds);
+    const ordersWithMedia = await this.attachOrderMedia(orderedOrders);
 
     return {
       success: true,
@@ -1601,6 +1625,129 @@ export class OrdersService {
         WHERE id IN (${Prisma.join(uniqueIds)})
           AND deleted_at IS NULL
       `,
+    );
+  }
+
+  private async queryOrderIdsWithRawFilters(input: {
+    page: number;
+    pageSize: number;
+    orderBy: 'created_desc' | 'created_asc' | 'shipped_desc';
+    statusMode:
+      | {
+          type: 'eq';
+          values: string[];
+        }
+      | {
+          type: 'in';
+          values: string[];
+        };
+    orderNo?: string;
+    mobile?: string;
+    keyword?: string;
+    createdAtFilter?: Prisma.DateTimeFilter;
+  }) {
+    const skip = (input.page - 1) * input.pageSize;
+    const conditions: Prisma.Sql[] = [];
+
+    if (input.statusMode.type === 'eq') {
+      conditions.push(Prisma.sql`o.status = ${input.statusMode.values[0]}`);
+    } else {
+      conditions.push(
+        Prisma.sql`o.status IN (${Prisma.join(input.statusMode.values)})`,
+      );
+    }
+
+    if (input.orderNo?.trim()) {
+      conditions.push(
+        Prisma.sql`o.order_no LIKE CONCAT('%', ${input.orderNo.trim()}, '%')`,
+      );
+    }
+
+    if (input.mobile?.trim()) {
+      const mobile = input.mobile.trim();
+      conditions.push(
+        Prisma.sql`(
+          o.receiver_mobile LIKE CONCAT('%', ${mobile}, '%')
+          OR c.mobile LIKE CONCAT('%', ${mobile}, '%')
+        )`,
+      );
+    }
+
+    if (input.keyword?.trim()) {
+      const keyword = input.keyword.trim();
+      conditions.push(
+        Prisma.sql`(
+          o.order_no LIKE CONCAT('%', ${keyword}, '%')
+          OR o.receiver_name LIKE CONCAT('%', ${keyword}, '%')
+          OR o.receiver_mobile LIKE CONCAT('%', ${keyword}, '%')
+          OR o.receiver_address LIKE CONCAT('%', ${keyword}, '%')
+          OR c.name LIKE CONCAT('%', ${keyword}, '%')
+          OR c.mobile LIKE CONCAT('%', ${keyword}, '%')
+          OR EXISTS (
+            SELECT 1
+            FROM order_items oi
+            WHERE oi.order_id = o.id
+              AND (
+                oi.product_name LIKE CONCAT('%', ${keyword}, '%')
+                OR oi.product_spec LIKE CONCAT('%', ${keyword}, '%')
+              )
+          )
+        )`,
+      );
+    }
+
+    if (input.createdAtFilter?.gte) {
+      conditions.push(Prisma.sql`o.created_at >= ${input.createdAtFilter.gte}`);
+    }
+
+    if (input.createdAtFilter?.lte) {
+      conditions.push(Prisma.sql`o.created_at <= ${input.createdAtFilter.lte}`);
+    }
+
+    const whereSql =
+      conditions.length > 0
+        ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+        : Prisma.empty;
+    const orderBySql =
+      input.orderBy === 'created_asc'
+        ? Prisma.sql`ORDER BY o.created_at ASC`
+        : input.orderBy === 'shipped_desc'
+          ? Prisma.sql`ORDER BY o.shipped_at DESC, o.updated_at DESC`
+          : Prisma.sql`ORDER BY o.created_at DESC`;
+
+    const [countRows, idRows] = await Promise.all([
+      this.prisma.$queryRaw<CountRow[]>(
+        Prisma.sql`
+          SELECT COUNT(DISTINCT o.id) AS total
+          FROM orders o
+          LEFT JOIN customers c ON c.id = o.customer_id
+          ${whereSql}
+        `,
+      ),
+      this.prisma.$queryRaw<OrderIdRow[]>(
+        Prisma.sql`
+          SELECT o.id
+          FROM orders o
+          LEFT JOIN customers c ON c.id = o.customer_id
+          ${whereSql}
+          ${orderBySql}
+          LIMIT ${input.pageSize} OFFSET ${skip}
+        `,
+      ),
+    ]);
+
+    return {
+      total: Number(countRows[0]?.total ?? 0),
+      orderIds: idRows.map((row) => row.id),
+    };
+  }
+
+  private sortRecordsByIds<T extends { id: number }>(records: T[], ids: number[]) {
+    const orderIndex = new Map(ids.map((id, index) => [id, index]));
+    return [...records].sort(
+      (left, right) =>
+        (orderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+        (orderIndex.get(right.id) ?? Number.MAX_SAFE_INTEGER),
     );
   }
 
