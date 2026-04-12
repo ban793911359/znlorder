@@ -744,7 +744,6 @@ let OrdersService = OrdersService_1 = class OrdersService {
     async getWarehouseOrders(query) {
         const page = query.page ?? 1;
         const pageSize = query.pageSize ?? 10;
-        const skip = (page - 1) * pageSize;
         const warehouseStatuses = [
             order_status_constants_1.ORDER_STATUS.pending_shipment,
             order_status_constants_1.ORDER_STATUS.partial_shipped,
@@ -758,15 +757,18 @@ let OrdersService = OrdersService_1 = class OrdersService {
             page,
             pageSize,
             orderBy: status === order_status_constants_1.ORDER_STATUS.shipped ? 'shipped_desc' : 'created_asc',
-            statusMode: status === order_status_constants_1.ORDER_STATUS.pending_shipment
-                ? {
-                    type: 'eq',
-                    values: [order_status_constants_1.ORDER_STATUS.pending_shipment],
-                }
-                : {
-                    type: 'eq',
-                    values: [status],
-                },
+            statusMode: {
+                type: 'eq',
+                values: [
+                    status === order_status_constants_1.ORDER_STATUS.partial_shipped
+                        ? order_status_constants_1.ORDER_STATUS.pending_shipment
+                        : status,
+                ],
+            },
+            latestShipmentStatus: status === order_status_constants_1.ORDER_STATUS.partial_shipped
+                ? order_status_constants_1.SHIPMENT_STATUS.partial_shipped
+                : undefined,
+            withoutShipments: status === order_status_constants_1.ORDER_STATUS.pending_shipment,
             orderNo: query.orderNo,
             mobile: query.mobile,
             keyword,
@@ -1304,6 +1306,13 @@ let OrdersService = OrdersService_1 = class OrdersService {
               FROM order_shipments os2
               WHERE os2.order_id = o.id
             )
+        )`);
+        }
+        if (input.withoutShipments) {
+            conditions.push(client_1.Prisma.sql `NOT EXISTS (
+          SELECT 1
+          FROM order_shipments os
+          WHERE os.order_id = o.id
         )`);
         }
         const whereSql = conditions.length > 0

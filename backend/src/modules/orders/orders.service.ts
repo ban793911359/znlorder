@@ -996,7 +996,6 @@ export class OrdersService {
   async getWarehouseOrders(query: ListOrdersQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 10;
-    const skip = (page - 1) * pageSize;
     const warehouseStatuses: OrderStatusValue[] = [
       ORDER_STATUS.pending_shipment,
       ORDER_STATUS.partial_shipped,
@@ -1013,16 +1012,19 @@ export class OrdersService {
       pageSize,
       orderBy:
         status === ORDER_STATUS.shipped ? 'shipped_desc' : 'created_asc',
-      statusMode:
-        status === ORDER_STATUS.pending_shipment
-          ? {
-              type: 'eq',
-              values: [ORDER_STATUS.pending_shipment],
-            }
-          : {
-              type: 'eq',
-              values: [status],
-            },
+      statusMode: {
+        type: 'eq',
+        values: [
+          status === ORDER_STATUS.partial_shipped
+            ? ORDER_STATUS.pending_shipment
+            : status,
+        ],
+      },
+      latestShipmentStatus:
+        status === ORDER_STATUS.partial_shipped
+          ? SHIPMENT_STATUS.partial_shipped
+          : undefined,
+      withoutShipments: status === ORDER_STATUS.pending_shipment,
       orderNo: query.orderNo,
       mobile: query.mobile,
       keyword,
@@ -1685,6 +1687,7 @@ export class OrdersService {
           values: string[];
         };
     latestShipmentStatus?: string;
+    withoutShipments?: boolean;
     orderNo?: string;
     mobile?: string;
     keyword?: string;
@@ -1760,6 +1763,16 @@ export class OrdersService {
               FROM order_shipments os2
               WHERE os2.order_id = o.id
             )
+        )`,
+      );
+    }
+
+    if (input.withoutShipments) {
+      conditions.push(
+        Prisma.sql`NOT EXISTS (
+          SELECT 1
+          FROM order_shipments os
+          WHERE os.order_id = o.id
         )`,
       );
     }

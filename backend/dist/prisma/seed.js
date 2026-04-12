@@ -222,6 +222,13 @@ async function main() {
             role: client_1.UserRole.warehouse,
             password: 'Warehouse@123',
         },
+        {
+            username: 'superadmin',
+            displayName: '超级管理员',
+            mobile: '13800000003',
+            role: client_1.UserRole.super_admin,
+            password: 'SuperAdmin@123',
+        },
     ];
     const customers = [
         {
@@ -406,6 +413,7 @@ async function main() {
     console.log('Default users:');
     console.log('  operator / Operator@123');
     console.log('  warehouse / Warehouse@123');
+    console.log('  superadmin / SuperAdmin@123');
     console.log('Demo public links:');
     orders.forEach((order) => {
         console.log(`  ${order.orderNo} -> token: ${order.clientToken}`);

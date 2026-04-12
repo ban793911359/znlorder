@@ -37,6 +37,7 @@
         <div>测试账号：</div>
         <div>operator / Operator@123</div>
         <div>warehouse / Warehouse@123</div>
+        <div>superadmin / SuperAdmin@123</div>
       </div>
     </div>
   </div>

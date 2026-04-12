@@ -30,6 +30,10 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('User context not found');
     }
 
+    if (user.role === UserRole.super_admin) {
+      return true;
+    }
+
     if (!requiredRoles.includes(user.role)) {
       throw new ForbiddenException('You do not have permission');
     }

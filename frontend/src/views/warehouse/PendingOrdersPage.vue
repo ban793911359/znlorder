@@ -3,6 +3,7 @@
     <section-card title="订单状态">
       <van-tabs v-model:active="activeStatus" @change="handleStatusChange">
         <van-tab title="待发货" name="pending_shipment" />
+        <van-tab title="部分发货" name="partial_shipped" />
         <van-tab title="已发货" name="shipped" />
       </van-tabs>
     </section-card>
@@ -45,7 +46,7 @@ import { saveJSON } from '@/utils/storage';
 
 const router = useRouter();
 const keyword = ref('');
-const activeStatus = ref<'pending_shipment' | 'shipped'>('pending_shipment');
+const activeStatus = ref<'pending_shipment' | 'partial_shipped' | 'shipped'>('pending_shipment');
 const list = ref<OrderSummary[]>([]);
 const pagination = reactive({
   page: 1,
@@ -55,10 +56,18 @@ const pagination = reactive({
 
 const hasMore = computed(() => list.value.length < pagination.total);
 const pageTitle = computed(() =>
-  activeStatus.value === 'pending_shipment' ? '待发货订单' : '已发货订单',
+  activeStatus.value === 'pending_shipment'
+    ? '待发货订单'
+    : activeStatus.value === 'partial_shipped'
+      ? '部分发货订单'
+      : '已发货订单',
 );
 const emptyText = computed(() =>
-  activeStatus.value === 'pending_shipment' ? '暂无待发货订单' : '暂无已发货订单',
+  activeStatus.value === 'pending_shipment'
+    ? '暂无待发货订单'
+    : activeStatus.value === 'partial_shipped'
+      ? '暂无部分发货订单'
+      : '暂无已发货订单',
 );
 
 onMounted(() => {

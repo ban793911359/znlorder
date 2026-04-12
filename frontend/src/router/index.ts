@@ -95,7 +95,7 @@ router.beforeEach((to) => {
   }
 
   const requiredRole = to.meta.role as string | undefined;
-  if (requiredRole && authStore.role !== requiredRole) {
+  if (requiredRole && !authStore.canAccessRole(requiredRole)) {
     showToast('当前账号无权访问该页面');
     return authStore.getHomePath();
   }

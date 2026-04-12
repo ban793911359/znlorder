@@ -1,1 +1,0 @@
-import{d as n,c as o,b as s,r as c,f as p}from"./index-CvnPCSl2.js";const a={class:"empty-state"},_=n({__name:"EmptyState",props:{description:{}},setup(e){return(r,i)=>{const t=c("van-empty");return p(),o("div",a,[s(t,{description:e.description},null,8,["description"])])}}});export{_};

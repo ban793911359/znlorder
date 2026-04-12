@@ -309,6 +309,13 @@ async function main() {
       role: UserRole.warehouse,
       password: 'Warehouse@123',
     },
+    {
+      username: 'superadmin',
+      displayName: '超级管理员',
+      mobile: '13800000003',
+      role: UserRole.super_admin,
+      password: 'SuperAdmin@123',
+    },
   ];
 
   const customers: SeedCustomer[] = [
@@ -504,6 +511,7 @@ async function main() {
   console.log('Default users:');
   console.log('  operator / Operator@123');
   console.log('  warehouse / Warehouse@123');
+  console.log('  superadmin / SuperAdmin@123');
   console.log('Demo public links:');
   orders.forEach((order) => {
     console.log(`  ${order.orderNo} -> token: ${order.clientToken}`);

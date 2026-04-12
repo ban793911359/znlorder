@@ -1,9 +1,27 @@
 <template>
   <div class="app-shell">
     <header class="topbar">
-      <div>
+      <div class="topbar__main">
         <div class="topbar__title">{{ title }}</div>
         <div class="topbar__subtitle">{{ authStore.user?.displayName }}</div>
+        <div v-if="authStore.role === 'super_admin'" class="portal-switch">
+          <van-button
+            size="small"
+            :type="currentPortal === 'operator' ? 'primary' : 'default'"
+            plain
+            @click="switchPortal('operator')"
+          >
+            运营端
+          </van-button>
+          <van-button
+            size="small"
+            :type="currentPortal === 'warehouse' ? 'primary' : 'default'"
+            plain
+            @click="switchPortal('warehouse')"
+          >
+            仓库端
+          </van-button>
+        </div>
       </div>
       <van-button size="small" plain type="primary" @click="logout">退出</van-button>
     </header>
@@ -13,7 +31,7 @@
     </main>
 
     <van-tabbar route safe-area-inset-bottom>
-      <template v-if="authStore.role === 'operator'">
+      <template v-if="currentPortal === 'operator'">
         <van-tabbar-item replace to="/operator/orders/create">
           录单
         </van-tabbar-item>
@@ -44,10 +62,36 @@ const router = useRouter();
 const authStore = useAuthStore();
 
 const title = computed(() => String(route.meta.title || '微信录单 H5'));
+const currentPortal = computed<'operator' | 'warehouse'>(() =>
+  route.path.startsWith('/warehouse') ? 'warehouse' : 'operator',
+);
 
 function logout() {
   authStore.clearAuth();
   showSuccessToast('已退出登录');
   router.replace('/login');
 }
+
+function switchPortal(portal: 'operator' | 'warehouse') {
+  if (currentPortal.value === portal) {
+    return;
+  }
+
+  authStore.setActivePortal(portal);
+  router.replace(authStore.getHomePath(portal));
+}
 </script>
+
+<style scoped>
+.topbar__main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.portal-switch {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+</style>

@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RolesGuard = void 0;
 const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
+const client_1 = require("@prisma/client");
 const roles_decorator_1 = require("../decorators/roles.decorator");
 let RolesGuard = class RolesGuard {
     constructor(reflector) {
@@ -26,6 +27,9 @@ let RolesGuard = class RolesGuard {
         const user = request.user;
         if (!user) {
             throw new common_1.ForbiddenException('User context not found');
+        }
+        if (user.role === client_1.UserRole.super_admin) {
+            return true;
         }
         if (!requiredRoles.includes(user.role)) {
             throw new common_1.ForbiddenException('You do not have permission');
