@@ -224,7 +224,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                         }
                     }
                     if (paymentImageFileIds.length > 0) {
-                        await this.bindUploadFilesToOrder(tx, paymentImageFileIds, {
+                        await this.cloneUploadFilesToOrder(tx, paymentImageFileIds, {
                             orderId: order.id,
                             orderItemId: null,
                         });
@@ -411,14 +411,12 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 const existingPaymentImageIds = existingOrder.images
                     .filter((image) => image.bizType === upload_biz_types_1.ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE)
                     .map((image) => image.id);
-                if (existingPaymentImageIds.length > 0) {
-                    await this.bindUploadFilesToOrder(tx, existingPaymentImageIds, {
-                        orderId: null,
-                        orderItemId: null,
-                    });
-                }
-                if (updateOrderDto.paymentImageFileIds.length > 0) {
-                    await this.bindUploadFilesToOrder(tx, updateOrderDto.paymentImageFileIds, {
+                const existingPaymentImageIdSet = new Set(existingPaymentImageIds);
+                const newPaymentImageIds = [
+                    ...new Set(updateOrderDto.paymentImageFileIds),
+                ].filter((imageId) => !existingPaymentImageIdSet.has(imageId));
+                if (newPaymentImageIds.length > 0) {
+                    await this.cloneUploadFilesToOrder(tx, newPaymentImageIds, {
                         orderId: id,
                         orderItemId: null,
                     });
@@ -1003,6 +1001,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
         if (invalidBizTypeFile) {
             throw new common_1.BadRequestException('Some uploaded images do not match the expected type');
         }
+        if (bizType === upload_biz_types_1.ORDER_PAYMENT_CODE_IMAGE_BIZ_TYPE) {
+            return;
+        }
         const occupiedFile = files.find((file) => {
             if (file.order_id === null) {
                 return false;
@@ -1024,6 +1025,48 @@ let OrdersService = OrdersService_1 = class OrdersService {
           order_id = ${target.orderId},
           order_item_id = ${target.orderItemId}
         WHERE id IN (${client_1.Prisma.join(uniqueIds)})
+      `);
+    }
+    async cloneUploadFilesToOrder(tx, fileIds, target) {
+        if (fileIds.length === 0) {
+            return;
+        }
+        const uniqueIds = [...new Set(fileIds)];
+        await tx.$executeRaw(client_1.Prisma.sql `
+        INSERT INTO upload_files (
+          order_id,
+          order_item_id,
+          uploader_id,
+          biz_type,
+          storage_driver,
+          storage_key,
+          original_name,
+          file_name,
+          mime_type,
+          file_size,
+          file_url,
+          expires_at,
+          deleted_at,
+          created_at
+        )
+        SELECT
+          ${target.orderId},
+          ${target.orderItemId},
+          uploader_id,
+          biz_type,
+          storage_driver,
+          storage_key,
+          original_name,
+          file_name,
+          mime_type,
+          file_size,
+          file_url,
+          expires_at,
+          NULL,
+          CURRENT_TIMESTAMP(3)
+        FROM upload_files
+        WHERE id IN (${client_1.Prisma.join(uniqueIds)})
+          AND deleted_at IS NULL
       `);
     }
     extractWarehouseRemark(operatorRemark) {

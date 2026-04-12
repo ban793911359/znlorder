@@ -134,8 +134,11 @@ let UploadsService = UploadsService_1 = class UploadsService {
                 fileName: file.file_name,
                 storageDriver: file.storage_driver,
             });
-            if (!storageKey) {
-                this.logger.warn(`skip deleting file without storage key: id=${file.id} fileUrl=${file.file_url}`);
+            const hasOtherReferences = await this.hasOtherActiveReferences(file);
+            if (!storageKey || hasOtherReferences) {
+                this.logger.warn(hasOtherReferences
+                    ? `skip physical delete because file is still referenced: id=${file.id} fileUrl=${file.file_url}`
+                    : `skip deleting file without storage key: id=${file.id} fileUrl=${file.file_url}`);
                 continue;
             }
             try {
@@ -205,6 +208,20 @@ let UploadsService = UploadsService_1 = class UploadsService {
             }
         }
         return input.fileUrl;
+    }
+    async hasOtherActiveReferences(file) {
+        const comparisonField = file.storage_key
+            ? client_1.Prisma.sql `storage_key = ${file.storage_key}`
+            : client_1.Prisma.sql `file_url = ${file.file_url}`;
+        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `
+        SELECT COUNT(*) AS ref_count
+        FROM upload_files
+        WHERE id <> ${file.id}
+          AND deleted_at IS NULL
+          AND storage_driver = ${file.storage_driver}
+          AND ${comparisonField}
+      `);
+        return Number(rows[0]?.ref_count ?? 0) > 0;
     }
 };
 exports.UploadsService = UploadsService;
